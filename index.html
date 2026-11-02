@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>导游报账计算器</title>
+<style>
+  :root {
+    --blue: #1B6EF3;
+    --orange: #D97706;
+    --green: #0F9F6E;
+    --blue-bg: #E8F1FE;
+    --orange-bg: #FFF4E5;
+    --green-bg: #E6F7F0;
+    --store-tint: #F3F8FF;
+    --text: #111827;
+    --muted: #1f2937;
+    --card: #ffffff;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--text);
+    background: #f5f7fb;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 48px; }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    letter-spacing: .04em;
+    color: var(--blue);
+  }
+  .sub { color: var(--muted); font-size: 15px; margin-bottom: 16px; font-weight: 500; }
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    background: #fff; border: 2px solid #cbd5e1; border-radius: var(--radius);
+    padding: 10px; margin-bottom: 18px;
+  }
+  .tab {
+    flex: 1 1 140px; min-height: 46px; border-radius: 10px;
+    border: 2px solid #94a3b8; background: #fff; color: var(--text);
+    font-size: 17px; font-weight: 700; letter-spacing: .03em; cursor: pointer;
+  }
+  .tab.active-blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .tab.active-orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .frame {
+    border: 2px solid var(--blue); background: var(--blue-bg);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 18px;
+  }
+  .frame.orange { border-color: var(--orange); background: var(--orange-bg); }
+  .frame.green { border-color: var(--green); background: var(--green-bg); }
+  .sect-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 24px; font-weight: 700; letter-spacing: .04em; margin: 0 0 6px;
+  }
+  .accent { width: 5px; height: 26px; border-radius: 3px; flex-shrink: 0; }
+  .hint { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 0 14px; }
+  .soft {
+    background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px;
+  }
+  .store {
+    background: var(--store-tint); border-radius: 12px; padding: 14px; margin-bottom: 10px;
+  }
+  .store-head {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin-bottom: 10px;
+  }
+  .store-name { font-size: 18px; font-weight: 700; color: var(--blue); letter-spacing: .03em; }
+  .store-tip { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .row {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+  }
+  .field { display: flex; flex-direction: column; flex: 0 0 auto; }
+  .field label {
+    font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; white-space: nowrap;
+  }
+  input, select, textarea, button { font: inherit; color: var(--text); }
+  input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    border: 2px solid #64748b; border-radius: 8px; padding: 8px 10px;
+    background: #fff; min-height: 40px; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+  .grid4 {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: end;
+  }
+  @media (max-width: 860px) {
+    .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .pay-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 900px) {
+    .pay-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .pay-grid { grid-template-columns: 1fr; }
+  }
+  .pay-card { background: #fff; border-radius: 12px; padding: 12px; }
+  .pay-card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--orange); }
+  .pay-fields {
+    display: grid;
+    grid-template-columns: minmax(72px, 100px) minmax(0, 1fr);
+    gap: 8px;
+    align-items: end;
+  }
+  .props {
+    display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px 14px; margin-top: 10px;
+  }
+  .props div { font-size: 15px; font-weight: 650; }
+  .props b { color: var(--blue); }
+  .metrics {
+    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-top: 8px;
+  }
+  @media (max-width: 700px) {
+    .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .props { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  .metric {
+    background: #fff; border-radius: 12px; padding: 12px; text-align: center;
+  }
+  .metric .v { font-size: 26px; font-weight: 800; color: var(--green); }
+  .metric .l { font-size: 14px; font-weight: 700; color: var(--muted); }
+  .btn {
+    border: 2px solid #64748b; background: #fff; border-radius: 10px;
+    padding: 10px 14px; font-weight: 700; cursor: pointer; min-height: 42px;
+  }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.ok { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+  table {
+    width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; color: var(--text); font-weight: 600;
+  }
+  th { background: #e2e8f0; }
+  .auth-gate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; background: rgba(8,12,18,.92); backdrop-filter: blur(6px);
+  }
+  .auth-gate.hidden { display: none !important; }
+  .auth-card {
+    width: 100%; max-width: 380px;
+    background: #0f172a; border: 1px solid #334155; border-radius: 16px;
+    padding: 22px 20px 18px; box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    color: #e2e8f0;
+  }
+  .auth-card h1, .auth-card h2 {
+    margin: 0 0 6px; font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: .03em;
+  }
+  .auth-hint { color: #94a3b8; font-size: 13px; margin: 0 0 16px; font-weight: 600; }
+  .auth-card label {
+    display: block; font-size: 12px; color: #94a3b8; margin: 0 0 6px; font-weight: 700;
+  }
+  .auth-card input[type=text], .auth-card input[type=password] {
+    width: 100%; background: #020617; border: 1px solid #334155; color: #e2e8f0;
+    border-radius: 10px; padding: 11px 12px; font-size: 15px; outline: none; margin-bottom: 12px;
+    min-height: 42px;
+  }
+  .auth-card input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,110,243,.2); }
+  .auth-submit {
+    width: 100%; background: var(--blue); border: none; color: #fff; border-radius: 10px;
+    padding: 12px; font-size: 16px; font-weight: 750; cursor: pointer; margin-top: 4px; min-height: 44px;
+  }
+  .auth-submit:disabled { opacity: .6; cursor: wait; }
+  .auth-err {
+    color: #fecaca; background: #7f1d1d; border: 1px solid #b91c1c; border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; margin: 0 0 12px; font-weight: 650;
+  }
+  .auth-err:empty { display: none; }
+  .login-box { display: none; }
+  .toast {
+    position: fixed; right: 16px; bottom: 16px; background: #111827; color: #fff;
+    padding: 12px 16px; border-radius: 10px; font-weight: 700; display: none; z-index: 99;
+  }
+  .status-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 800;
+  }
+  .status-tag.draft { background: #fef3c7; color: #92400e; }
+  .status-tag.ok { background: #d1fae5; color: #065f46; }
+  .list-toolbar {
+    display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 12px;
+  }
+  @media (max-width: 860px) {
+    .list-toolbar { grid-template-columns: 1fr 1fr; }
+  }
+  .rec-row { cursor: pointer; }
+  .rec-row:hover { background: #eff6ff; }
+  .rec-check-col { width: 36px; text-align: center; }
+  .rec-check-col input { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
+  .rec-row.selected { background: #dbeafe; }
+  .sum-pay-item { background:#fff; border-radius:12px; padding:12px; }
+  .sum-pay-item .n { font-size:15px; font-weight:800; color:var(--orange); margin-bottom:4px; }
+  .sum-pay-item .a { font-size:22px; font-weight:800; color:var(--text); }
+  .sum-pay-item .note { font-size:13px; font-weight:650; color:var(--muted); margin-top:4px; }
+  .info-card {
+    background: var(--blue-bg); border-radius: 12px; padding: 12px 14px; min-width: 0;
+  }
+  .info-card .l { font-size: 14px; font-weight: 700; color: var(--blue); margin-bottom: 6px; }
+  .info-card .v { font-size: 18px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .income-panel { background: var(--blue-bg); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .pay-panel { background: var(--orange-bg); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .mini-card { background: #fff; border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .mini-card .l { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .mini-card .v { font-size: 20px; font-weight: 800; }
+  .comm-bar {
+    margin-top: 12px; padding: 12px 14px; background: #fff; border-radius: 10px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  #summaryBox {
+    width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 16px; line-height: 24px; font-weight: 600; color: var(--text);
+    background: #fff; border: 2px solid var(--blue); border-radius: 8px; padding: 14px; resize: vertical;
+  }
+
+  .combo { position: relative; width: 100%; }
+  .combo input { width: 100%; }
+  .combo-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    max-height: 260px; overflow: auto; z-index: 40;
+    background: #fff; border: 2px solid var(--blue); border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, .14);
+    display: none;
+  }
+  .combo-list.open { display: block; }
+  .combo-item {
+    padding: 9px 12px; cursor: pointer; font-weight: 650;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:hover, .combo-item.active { background: #dbeafe; color: #1e3a8a; }
+  .combo-item .code { color: var(--muted); font-size: 13px; font-weight: 600; margin-left: 8px; }
+  .combo-empty { padding: 10px 12px; color: var(--muted); font-weight: 650; }
+  .hidden { display: none !important; }
+
+  .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px){ .admin-grid { grid-template-columns:1fr; } }
+  .admin-card { background:#f8fbff; border-radius:14px; padding:14px; }
+  .admin-card h3 { margin:0 0 10px; font-size:16px; color:var(--blue); }
+  .admin-form { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:12px; }
+  .admin-form .field { width:auto; min-width:120px; }
+  .admin-form input, .admin-form select {
+    height:36px; border:1.5px solid #cfe0f5; border-radius:10px; padding:0 10px; font-size:14px; font-weight:700;
+  }
+  .user-who { font-size:13px; color:#64748b; font-weight:700; margin-top:4px; }
+  #adminTabBtn.hidden, #tab-admin.hidden { display:none !important; }
+  .admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .admin-table th, .admin-table td { border-bottom:1px solid #e2e8f0; padding:8px 6px; text-align:left; }
+  .admin-table th { color:#475569; background:#eef5ff; }
+  .role-admin { color:#b45309; font-weight:800; }
+  .role-user { color:#0369a1; font-weight:700; }
+
+</style>
+</head>
+<body>
+<div id="loginView" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <h1 id="authTitle">导游报账计算器</h1>
+    <p class="auth-hint">内部使用 · 请登录后进入</p>
+    <div id="loginErr" class="auth-err"></div>
+    <form id="loginForm" autocomplete="on">
+      <label for="authUser">用户名</label>
+      <input id="authUser" type="text" name="username" autocomplete="username" required placeholder="请输入用户名" />
+      <label for="authPass">密码</label>
+      <input id="authPass" type="password" name="password" autocomplete="current-password" required placeholder="请输入密码" />
+      <button class="auth-submit" id="loginBtn" type="submit">登录</button>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="wrap hidden">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div>
+      <h1>导游报账计算器</h1>
+      <p class="sub">蓝区工资提成 · 橙区现付报账（每行三项）· 绿区汇总录易途 · 可保存草稿/确认 · 可搜索</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div class="user-who" id="whoAmI"></div>
+      <button class="btn" id="logoutBtn" type="button">退出</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active-blue" data-tab="fill" type="button">填写计算</button>
+    <button class="tab" data-tab="list" type="button">记录列表</button>
+    <button class="tab hidden" data-tab="admin" id="adminTabBtn" type="button">管理员工具</button>
+  </div>
+
+  <section id="tab-fill">
+    <div class="frame">
+      <div class="sect-title" style="color:var(--blue)"><span class="accent" style="background:var(--blue)"></span>团信息</div>
+      <p class="hint">填写团号、导游、出团日期后开始录入；填完后到页底保存</p>
+      <div class="grid4">
+        <div class="field" style="width:auto">
+          <label>团号</label>
+          <input id="tuan" type="text" />
+        </div>
+        <div class="field" style="width:auto">
+          <label>导游</label>
+          <div class="combo" id="guideCombo">
+            <input id="guide" type="text" placeholder="输入姓名或工号筛选" autocomplete="off" />
+            <div class="combo-list" id="guideList" role="listbox"></div>
+          </div>
+        </div>
+        <div class="field" style="width:auto">
+          <label>出团日期</label>
+          <input id="date" type="date" />
+        </div>
+        <div class="field" style="width:auto">
+          <label>操作</label>
+          <button class="btn" id="clearBtn" type="button">清空全部</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" id="shopFrame">
+      <div class="sect-title" style="color:var(--blue)"><span class="accent" style="background:var(--blue)"></span>一、导游工资提成</div>
+      <p class="hint" id="incomeHint">合计 0 元 · 奖励 0</p>
+      <div class="soft">
+        <div class="store-name" style="margin-bottom:12px">购物项</div>
+        <div id="storesHost"></div>
+      </div>
+      <div class="soft">
+        <div class="store-name" style="margin-bottom:12px">景交提成 · 车销 · 导游日薪</div>
+        <div class="row" id="extraHost"></div>
+      </div>
+      <div class="props" id="incomeProps"></div>
+    </div>
+
+    <div class="frame orange">
+      <div class="sect-title" style="color:var(--orange)"><span class="accent" style="background:var(--orange)"></span>二、团中现付报账</div>
+      <p class="hint" id="payHint">合计 0 元 · 不计入工资提成，单独付给导游；每项可填金额与备注</p>
+      <div class="pay-grid" id="payHost"></div>
+    </div>
+
+    <div class="frame green">
+      <div class="sect-title" style="color:var(--green)"><span class="accent" style="background:var(--green)"></span>汇总 · 录易途</div>
+      <p class="hint" id="totalHint">应付导游 0 = 工资提成 0 + 现付 0；下方可复制工资提成简写到易途</p>
+      <div class="metrics" id="metricsHost"></div>
+
+      <div class="soft" style="margin-top:14px; margin-bottom:14px; display:grid; gap:16px;">
+        <div class="metrics" style="grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:0">
+          <div class="info-card"><div class="l">团号</div><div class="v" id="sumTuan">—</div></div>
+          <div class="info-card"><div class="l">导游</div><div class="v" id="sumGuide">—</div></div>
+          <div class="info-card"><div class="l">出团日期</div><div class="v" id="sumDate">—</div></div>
+        </div>
+
+        <div class="income-panel">
+          <div class="store-name" style="font-size:18px;margin-bottom:12px">【导游工资提成】</div>
+          <div class="metrics" id="sumIncomeCards" style="grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:0"></div>
+          <div class="comm-bar">
+            <span style="font-size:16px;font-weight:700;color:var(--blue)">购物店提成明细</span>
+            <span id="sumCommTotal" style="font-size:24px;font-weight:800;color:var(--blue)">0</span>
+          </div>
+          <div style="overflow:auto;margin-top:12px">
+            <table id="sumShopTable"><thead><tr><th>店</th><th>项目</th><th>金额</th><th>比例</th><th>提成</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div class="pay-panel">
+          <div class="store-name" style="font-size:18px;margin-bottom:12px;color:var(--orange)">【团中现付报账】</div>
+          <div class="pay-grid" id="sumPayCards"></div>
+          <div class="comm-bar">
+            <span style="font-size:16px;font-weight:700;color:var(--orange)">现付报账合计</span>
+            <span id="sumPayTotal" style="font-size:24px;font-weight:800;color:var(--orange)">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;gap:12px">
+        <div class="actions" style="margin-top:0">
+          <button class="btn primary" id="copyBtn" type="button">复制工资提成</button>
+          <span class="hint" style="margin:0">一行：店名金额+景交+车销+工资+奖励=合计；无效时可全选下方文字</span>
+        </div>
+        <textarea id="summaryBox" readonly rows="3"></textarea>
+      </div>
+      <div class="actions" style="margin-top:16px">
+        <button class="btn primary" id="saveDraftBtn" type="button">保存为草稿</button>
+        <button class="btn ok" id="confirmBtn" type="button">确认保存</button>
+        <span id="recordMeta" class="hint" style="margin:0;align-self:center"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-list" class="hidden">
+    <div class="frame">
+      <div class="sect-title" style="color:var(--blue)"><span class="accent" style="background:var(--blue)"></span>记录列表</div>
+      <p class="hint">按录入日期保存；可按导游、团号搜索；草稿可继续改，已确认为准确记录</p>
+      <div class="list-toolbar">
+        <div class="field" style="width:auto"><label>搜索导游</label><input id="qGuide" type="text" placeholder="导游名" /></div>
+        <div class="field" style="width:auto"><label>搜索团号</label><input id="qTuan" type="text" placeholder="团号" /></div>
+        <div class="field" style="width:auto"><label>录入日期</label><input id="qEntry" type="date" /></div>
+        <div class="field" style="width:auto">
+          <label>状态</label>
+          <select id="qStatus">
+            <option value="">全部</option>
+            <option value="草稿">草稿</option>
+            <option value="已确认">已确认</option>
+          </select>
+        </div>
+        <button class="btn primary" id="searchBtn" type="button">搜索</button>
+      </div>
+      <div style="overflow:auto">
+        <table id="listTable">
+          <thead>
+            <tr>
+              <th class="rec-check-col"><input type="checkbox" id="selectAllRec" title="全选" /></th>
+              <th>录入日期</th><th>状态</th><th>团号</th><th>导游</th><th>出团日期</th>
+              <th>工资提成</th><th>现付</th><th>应付</th><th>更新时间</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn" id="newRecBtn" type="button">新建空白单</button>
+        <button class="btn danger" id="deleteRecBtn" type="button">删除所选</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-admin" class="hidden">
+    <div class="frame">
+      <div class="sect-title" style="color:var(--blue)"><span class="accent" style="background:var(--blue)"></span>管理员工具</div>
+      <p class="hint">仅管理员可见：可添加/删除登录账号，以及维护导游模糊匹配名单（易途原名）</p>
+      <div class="admin-grid">
+        <div class="admin-card">
+          <h3>登录人员</h3>
+          <div class="admin-form">
+            <div class="field"><label>用户名</label><input id="newUserName" type="text" placeholder="姓名或账号" /></div>
+            <div class="field"><label>密码</label><input id="newUserPass" type="password" placeholder="初始密码" /></div>
+            <div class="field"><label>角色</label>
+              <select id="newUserRole">
+                <option value="user">普通用户</option>
+                <option value="admin">管理员</option>
+              </select>
+            </div>
+            <button class="btn primary" id="addUserBtn" type="button">添加人员</button>
+          </div>
+          <div style="overflow:auto;max-height:360px">
+            <table class="admin-table" id="usersTable">
+              <thead><tr><th>用户名</th><th>角色</th><th>创建时间</th><th>操作</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="admin-card">
+          <h3>导游名单</h3>
+          <div class="admin-form">
+            <div class="field" style="min-width:220px;flex:1"><label>易途原名</label><input id="newGuideRaw" type="text" placeholder="如 244.119牟登山" /></div>
+            <button class="btn primary" id="addGuideBtn" type="button">添加导游</button>
+          </div>
+          <div class="admin-form">
+            <div class="field" style="min-width:180px"><label>筛选</label><input id="guideFilterQ" type="text" placeholder="按姓名/工号筛选" /></div>
+            <span class="hint" id="guideCountHint" style="margin:0;align-self:center"></span>
+          </div>
+          <div style="overflow:auto;max-height:360px">
+            <table class="admin-table" id="guidesTable">
+              <thead><tr><th>易途原名</th><th>姓名</th><th>操作</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let GUIDES = [{"raw":"244.119牟登山","code":"244.119","name":"牟登山"},{"raw":"244.006438散客（司兼导）","code":"244.006438","name":"散客（司兼导）"},{"raw":"244.7026王春英","code":"244.7026","name":"王春英"},{"raw":"244.110008施华方","code":"244.110008","name":"施华方"},{"raw":"244.000189龚飞林","code":"244.000189","name":"龚飞林"},{"raw":"244.12997杨雪锋","code":"244.12997","name":"杨雪锋"},{"raw":"244.75汪颖","code":"244.75","name":"汪颖"},{"raw":"244.100039安平","code":"244.100039","name":"安平"},{"raw":"244.00625余长荣","code":"244.00625","name":"余长荣"},{"raw":"244.006267陈勇君","code":"244.006267","name":"陈勇君"},{"raw":"244.006245王喜梅","code":"244.006245","name":"王喜梅"},{"raw":"244.006307姜兵","code":"244.006307","name":"姜兵"},{"raw":"244.13001王国锋","code":"244.13001","name":"王国锋"},{"raw":"244.006275王宇1","code":"244.006275","name":"王宇1"},{"raw":"244.7020许前红","code":"244.7020","name":"许前红"},{"raw":"244.00402袁万春","code":"244.00402","name":"袁万春"},{"raw":"244.12957付海波","code":"244.12957","name":"付海波"},{"raw":"244.12868何花香","code":"244.12868","name":"何花香"},{"raw":"244.13002孙雄飞","code":"244.13002","name":"孙雄飞"},{"raw":"244.006360关玉","code":"244.006360","name":"关玉"},{"raw":"244.00507谢平","code":"244.00507","name":"谢平"},{"raw":"244.0114潘红","code":"244.0114","name":"潘红"},{"raw":"244.7012钟辉（女）","code":"244.7012","name":"钟辉（女）"},{"raw":"244.12916金文","code":"244.12916","name":"金文"},{"raw":"244.006309江雄峰","code":"244.006309","name":"江雄峰"},{"raw":"244.1112 张平","code":"244.1112","name":"张平"},{"raw":"244.1218杨令","code":"244.1218","name":"杨令"},{"raw":"244.000173胡孝彬","code":"244.000173","name":"胡孝彬"},{"raw":"244.1600付雪峰","code":"244.1600","name":"付雪峰"},{"raw":"244.006406刘成","code":"244.006406","name":"刘成"},{"raw":"244.12675王伟（1572）","code":"244.12675","name":"王伟（1572）"},{"raw":"244.7018冯媛","code":"244.7018","name":"冯媛"},{"raw":"244.00055许明敏","code":"244.00055","name":"许明敏"},{"raw":"244.12961龚汉军（重庆）","code":"244.12961","name":"龚汉军（重庆）"},{"raw":"244.006306王伟（2916）","code":"244.006306","name":"王伟（2916）"},{"raw":"244.7019陈睿（重庆）","code":"244.7019","name":"陈睿（重庆）"},{"raw":"244.784程文怡","code":"244.784","name":"程文怡"},{"raw":"244.00611翁邦军","code":"244.00611","name":"翁邦军"},{"raw":"244.7016杨明亮","code":"244.7016","name":"杨明亮"},{"raw":"244.12924刘凯","code":"244.12924","name":"刘凯"},{"raw":"244.006239张罗","code":"244.006239","name":"张罗"},{"raw":"244.006415唐欣","code":"244.006415","name":"唐欣"},{"raw":"244.12110秦渤昊","code":"244.12110","name":"秦渤昊"},{"raw":"244.7023李恩全","code":"244.7023","name":"李恩全"},{"raw":"244.12926李旭","code":"244.12926","name":"李旭"},{"raw":"244.00491何波","code":"244.00491","name":"何波"},{"raw":"244.00549刘付利霞","code":"244.00549","name":"刘付利霞"},{"raw":"244.00390谢莫兵","code":"244.00390","name":"谢莫兵"},{"raw":"244.100040刘风","code":"244.100040","name":"刘风"},{"raw":"244.7015王波","code":"244.7015","name":"王波"},{"raw":"244.7024吴佩宇","code":"244.7024","name":"吴佩宇"},{"raw":"244.12950杨兵（重庆）","code":"244.12950","name":"杨兵（重庆）"},{"raw":"244.006418廖柯（女）","code":"244.006418","name":"廖柯（女）"},{"raw":"244.12952冯雨","code":"244.12952","name":"冯雨"},{"raw":"244.00503裴玉晋","code":"244.00503","name":"裴玉晋"},{"raw":"244.006476曹丽君","code":"244.006476","name":"曹丽君"},{"raw":"244.7027余延宏","code":"244.7027","name":"余延宏"},{"raw":"244.00613蔡裴","code":"244.00613","name":"蔡裴"},{"raw":"244.12697姜立娜","code":"244.12697","name":"姜立娜"},{"raw":"244.00590刘海燕","code":"244.00590","name":"刘海燕"},{"raw":"244.00620蔡权","code":"244.00620","name":"蔡权"},{"raw":"244.006491冯小刚","code":"244.006491","name":"冯小刚"},{"raw":"244.12966毛召兵","code":"244.12966","name":"毛召兵"},{"raw":"244.12857何晓龙","code":"244.12857","name":"何晓龙"},{"raw":"244.12922刘超","code":"244.12922","name":"刘超"},{"raw":"244.12980陈通","code":"244.12980","name":"陈通"},{"raw":"244.00609陈静（陈晨-女）","code":"244.00609","name":"陈静（陈晨-女）"},{"raw":"244.50罗炼","code":"244.50","name":"罗炼"},{"raw":"244.7028蒙振山","code":"244.7028","name":"蒙振山"},{"raw":"244.7025雷正宇","code":"244.7025","name":"雷正宇"},{"raw":"244.00605李坤林","code":"244.00605","name":"李坤林"},{"raw":"244.7017朱可佳","code":"244.7017","name":"朱可佳"},{"raw":"244.912张小涛","code":"244.912","name":"张小涛"},{"raw":"244.00498骆远鹏","code":"244.00498","name":"骆远鹏"},{"raw":"244.12851雷家齐","code":"244.12851","name":"雷家齐"},{"raw":"244.00614黎军","code":"244.00614","name":"黎军"},{"raw":"244.00485褚剑辉","code":"244.00485","name":"褚剑辉"},{"raw":"244.12715张钟升","code":"244.12715","name":"张钟升"},{"raw":"244.006265李莹","code":"244.006265","name":"李莹"},{"raw":"244.00397黎东华","code":"244.00397","name":"黎东华"},{"raw":"244.006263林芯宇（女）","code":"244.006263","name":"林芯宇（女）"},{"raw":"244.100041吴波","code":"244.100041","name":"吴波"},{"raw":"244.7022陈学洁（陈明）","code":"244.7022","name":"陈学洁（陈明）"},{"raw":"244.7014符雅云","code":"244.7014","name":"符雅云"},{"raw":"244.0116王秀香","code":"244.0116","name":"王秀香"},{"raw":"244.848李康","code":"244.848","name":"李康"},{"raw":"244.12971马超（女）","code":"244.12971","name":"马超（女）"},{"raw":"244.00546林宁","code":"244.00546","name":"林宁"},{"raw":"244.00575钟志文","code":"244.00575","name":"钟志文"}];
+const STORES = [
+  { id: "gt", name: "龚滩非遗文化展示中心", short: "龚滩", items: [
+    { id: "gt1", name: "银饰", back: 60, rate: 15 },
+    { id: "gt2", name: "苗药后场", back: 30, rate: 10 },
+    { id: "gt3", name: "药材（苗药特）", back: 60, rate: 15 },
+    { id: "gt4", name: "药材（苗药一）", back: 60, rate: 15 },
+    { id: "gt5", name: "特价朱砂", back: 30, rate: 10 } ] },
+  { id: "gb", name: "国博", short: "国博", people: "18-70岁人数", items: [
+    { id: "gb1", name: "挂件", back: 80, tier: "jade" },
+    { id: "gb2", name: "手镯", back: 85, tier: "jade" } ] },
+  { id: "yl", name: "一带一路店", short: "一带一路", people: "18-70岁人数", items: [
+    { id: "yl4", name: "翡翠正价", back: 80, tier: "jade" },
+    { id: "yl3", name: "翡翠特价", back: 65, tier: "jade" },
+    { id: "yl1", name: "三宝正价", back: 85, tier: "jade" },
+    { id: "yl2", name: "三宝特价", back: 70, tier: "jade" } ] },
+  { id: "xt", name: "信泰珍展馆", short: "信泰", items: [{ id: "xt1", name: "信泰", back: 70, rate: 10 }] },
+  { id: "sc", name: "沙磁会馆", short: "沙磁", items: [{ id: "sc1", name: "沙磁", back: 67, rate: 10 }] },
+  { id: "dr", name: "重庆达仁堂", short: "达仁堂", items: [{ id: "dr1", name: "达仁堂", back: 53, rate: 10 }] },
+  { id: "wx", name: "万象阁", short: "万象阁", items: [{ id: "wx1", name: "万象阁", back: 60, rate: 10 }] },
+  { id: "yd", name: "渝都印象特产店", short: "渝都印象", people: "18岁及以上人数", items: [
+    { id: "yd1", name: "一类硒片", back: 70, tier: "yd" },
+    { id: "yd2", name: "一类朱砂", back: 70, tier: "yd" },
+    { id: "yd3", name: "二类特产", back: 60, rate: 15 },
+    { id: "yd4", name: "三类精油", back: 50, rate: 15 },
+    { id: "yd5", name: "四类三楼", back: 40, rate: 10 },
+    { id: "yd6", name: "一楼食膳", back: 40, rate: 10 },
+    { id: "yd7", name: "二楼茶叶", back: 30, rate: 0 },
+    { id: "yd8", name: "特价硒片", back: 50, rate: 10 },
+    { id: "yd9", name: "特价朱砂", back: 30, rate: 0 },
+    { id: "yd10", name: "一楼食品", back: 20, rate: 0 } ] },
+];
+const PAY = ["司陪房", "团中加餐", "团中退费", "现付房费", "现付餐费", "现付车费", "现付司机红包"];
+function jadeRate(pc) {
+  if (pc <= 800) return 10; if (pc <= 1600) return 15; if (pc <= 1900) return 16; if (pc <= 2200) return 17;
+  if (pc <= 2500) return 18; if (pc <= 2800) return 19; if (pc <= 3500) return 20; return 21;
+}
+function ydRate(pc) {
+  if (pc <= 600) return 12; if (pc <= 900) return 15; if (pc <= 1200) return 17; if (pc <= 1500) return 19; if (pc <= 1800) return 20; return 21;
+}
+const n = (s) => { const v = parseFloat(s ?? ""); return isFinite(v) ? v : 0; };
+const r = (v) => Math.round(Number(v) * 100) / 100;
+const m = (v) => r(v).toFixed(2);
+function fieldW(lab) { return Math.min(210, Math.max(96, Math.round(String(lab).length * 15 + 12))); }
+
+function chinaToday() {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(new Date());
+}
+
+const state = {
+  code: sessionStorage.getItem("gs_token") || sessionStorage.getItem("gs_access") || "",
+  user: sessionStorage.getItem("gs_user") || "",
+  role: sessionStorage.getItem("gs_role") || "",
+  currentId: null,
+  status: "",
+  entryDate: "",
+  values: { date: chinaToday() },
+};
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, 2200);
+}
+
+const API_BASE = (() => {
+  if (window.GS_API_BASE) return String(window.GS_API_BASE).replace(/\/$/, "");
+  const m = location.pathname.match(/^(.*\/guide-settle)(?:\/|$)/);
+  if (m) return m[1];
+  // 帽子云镜像：页面在根路径，/api 由网关反代到 Cloudflare Worker（同源）
+  if (/\.maozi\.io$/i.test(location.hostname)) {
+    return "";
+  }
+  if (/github\.io$/i.test(location.hostname)) {
+    return "https://tourism-kb-id-ocr.qinfan079325.workers.dev/guide-settle";
+  }
+  return "";
+})();
+
+function authHeaders() {
+  const h = { "content-type": "application/json" };
+  if (state.code) h.authorization = "Bearer " + state.code;
+  return h;
+}
+
+async function api(path, opts = {}) {
+  const url = path.startsWith("http") ? path : (API_BASE + path);
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...authHeaders(), ...(opts.headers || {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error("未登录或登录已失效");
+  if (res.status === 403) throw new Error("无权限");
+  if (!res.ok || data.ok === false) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+
+function isAdmin() { return state.role === "admin"; }
+
+function applyRoleUI() {
+  const btn = document.getElementById("adminTabBtn");
+  if (btn) btn.classList.toggle("hidden", !isAdmin());
+  const who = document.getElementById("whoAmI");
+  if (who) who.textContent = state.user ? (`当前：${state.user}` + (isAdmin() ? "（管理员）" : "")) : "";
+}
+
+async function refreshGuidesFromApi() {
+  try {
+    const data = await api("/api/guides");
+    if (Array.isArray(data.guides) && data.guides.length) GUIDES = data.guides;
+  } catch (_e) { /* keep baked-in list */ }
+}
+
+function clearFormCaches(username) {
+  // Drop any leftover global draft/form caches; never share across users.
+  const drop = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k === "gs_lastRecordId" || k === "gs_draft" || k === "gs_form" || k.startsWith("gs_draft_") || k.startsWith("gs_form_") || k.startsWith("gs_lastRecord")) drop.push(k);
+    }
+    drop.forEach((k) => localStorage.removeItem(k));
+  } catch (_e) { /* ignore */ }
+  try {
+    ["gs_lastRecordId", "gs_draft", "gs_form", "gs_access"].forEach((k) => sessionStorage.removeItem(k));
+    // remove un-namespaced leftovers; keep only auth keys (gs_token/gs_user/gs_role)
+    const sdrop = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith("gs_draft") || k.startsWith("gs_form") || k.startsWith("gs_lastRecord")) sdrop.push(k);
+    }
+    sdrop.forEach((k) => sessionStorage.removeItem(k));
+  } catch (_e) { /* ignore */ }
+  if (username) {
+    // Namespace reserved for future per-user caches; clear stale ones for this user on login.
+    try {
+      localStorage.removeItem("gs_draft_" + username);
+      localStorage.removeItem("gs_form_" + username);
+      localStorage.removeItem("gs_lastRecordId_" + username);
+    } catch (_e) { /* ignore */ }
+  }
+}
+
+function resetBlankForm(opts = {}) {
+  const withToast = !!opts.toast;
+  const switchToFill = opts.switchToFill !== false;
+  state.currentId = null;
+  state.status = "";
+  state.entryDate = "";
+  state.values = { date: chinaToday() };
+  clearFormCaches(state.user || "");
+  closeGuideList();
+  const sel = document.getElementById("selectAllRec");
+  if (sel) sel.checked = false;
+  document.querySelectorAll("#listTable tbody .rec-check").forEach((cb) => {
+    cb.checked = false;
+    const tr = cb.closest("tr");
+    if (tr) tr.classList.remove("selected");
+  });
+  syncInputsFromState();
+  recalc();
+  if (switchToFill) switchTab("fill");
+  if (withToast) toast("已新建空白单");
+}
+
+async function enterApp() {
+  applyRoleUI();
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("appView").classList.remove("hidden");
+  // Always start on a blank form after login / session restore — never auto-open last record.
+  resetBlankForm({ switchToFill: true });
+  await refreshGuidesFromApi();
+}
+
+async function loadAdminUsers() {
+  const data = await api("/api/admin/users");
+  const tb = document.querySelector("#usersTable tbody");
+  tb.innerHTML = "";
+  (data.users || []).forEach((u) => {
+    const tr = document.createElement("tr");
+    const canDel = u.username !== "秦凡" && u.username !== state.user;
+    tr.innerHTML = `<td>${u.username}</td><td class="${u.role === "admin" ? "role-admin" : "role-user"}">${u.role === "admin" ? "管理员" : "普通用户"}</td><td>${u.createdAt || ""}</td><td></td>`;
+    const td = tr.lastElementChild;
+    if (canDel) {
+      const b = document.createElement("button");
+      b.className = "btn danger";
+      b.type = "button";
+      b.textContent = "删除";
+      b.onclick = () => deleteUser(u.username);
+      td.appendChild(b);
+    } else {
+      td.textContent = "—";
+    }
+    tb.appendChild(tr);
+  });
+}
+
+async function loadAdminGuides() {
+  const data = await api("/api/admin/guides");
+  GUIDES = data.guides || [];
+  const q = normQ(document.getElementById("guideFilterQ").value || "");
+  const rows = GUIDES.filter((g) => !q || guideMatch(g, q));
+  document.getElementById("guideCountHint").textContent = `共 ${GUIDES.length} 人` + (q ? ` · 显示 ${rows.length}` : "");
+  const tb = document.querySelector("#guidesTable tbody");
+  tb.innerHTML = "";
+  rows.slice(0, 200).forEach((g) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${g.raw}</td><td>${g.name || ""}</td><td></td>`;
+    const b = document.createElement("button");
+    b.className = "btn danger";
+    b.type = "button";
+    b.textContent = "删除";
+    b.onclick = () => deleteGuide(g.raw);
+    tr.lastElementChild.appendChild(b);
+    tb.appendChild(tr);
+  });
+}
+
+async function addUser() {
+  const username = (document.getElementById("newUserName").value || "").trim();
+  const password = (document.getElementById("newUserPass").value || "").trim();
+  const role = document.getElementById("newUserRole").value === "admin" ? "admin" : "user";
+  if (!username || !password) { toast("请填写用户名和密码"); return; }
+  await api("/api/admin/users", { method: "POST", body: JSON.stringify({ username, password, role }) });
+  document.getElementById("newUserName").value = "";
+  document.getElementById("newUserPass").value = "";
+  toast("已添加人员");
+  await loadAdminUsers();
+}
+
+async function deleteUser(username) {
+  if (!confirm("确认删除人员「" + username + "」？")) return;
+  await api("/api/admin/users/" + encodeURIComponent(username), { method: "DELETE" });
+  toast("已删除");
+  await loadAdminUsers();
+}
+
+async function addGuide() {
+  const raw = (document.getElementById("newGuideRaw").value || "").trim();
+  if (!raw) { toast("请填写易途原名"); return; }
+  await api("/api/admin/guides", { method: "POST", body: JSON.stringify({ raw }) });
+  document.getElementById("newGuideRaw").value = "";
+  toast("已添加导游");
+  await loadAdminGuides();
+}
+
+async function deleteGuide(raw) {
+  if (!confirm("确认从名单删除「" + raw + "」？")) return;
+  await api("/api/admin/guides?raw=" + encodeURIComponent(raw), { method: "DELETE" });
+  toast("已删除");
+  await loadAdminGuides();
+}
+
+function get(k) {
+  if (k === "date") return state.values.date || chinaToday();
+  return state.values[k] ?? "";
+}
+function setVal(k, v) {
+  if (k === "date" && !v) v = chinaToday();
+  state.values[k] = v;
+  recalc();
+}
+
+function buildStores() {
+  const host = document.getElementById("storesHost");
+  host.innerHTML = "";
+  STORES.forEach((s) => {
+    const box = document.createElement("div");
+    box.className = "store";
+    box.dataset.store = s.id;
+    const head = document.createElement("div");
+    head.className = "store-head";
+    head.innerHTML = `<span class="store-name">${s.name}</span><span class="store-tip" data-tip="${s.id}"></span><span class="store-tip" data-total="${s.id}"></span>`;
+    const row = document.createElement("div");
+    row.className = "row";
+    if (s.people) row.appendChild(fieldEl(s.people, "p_" + s.id, "number"));
+    s.items.filter((it) => it.rate !== 0).forEach((it) => {
+      const lab = it.rate !== undefined ? `${it.name} ${it.rate}%` : it.name;
+      row.appendChild(fieldEl(lab, it.id, "number"));
+    });
+    box.appendChild(head);
+    box.appendChild(row);
+    host.appendChild(box);
+  });
+
+  const extra = document.getElementById("extraHost");
+  extra.innerHTML = "";
+  [
+    ["景交人数×5", "jj"],
+    ["车销×5", "cx"],
+    ["日薪每天", "wd"],
+    ["日薪天数", "wn"],
+  ].forEach(([lab, k]) => extra.appendChild(fieldEl(lab, k, "number")));
+
+  const payHost = document.getElementById("payHost");
+  payHost.innerHTML = "";
+  PAY.forEach((k) => {
+    const card = document.createElement("div");
+    card.className = "pay-card";
+    card.innerHTML = `<h3>${k}</h3>`;
+    const fields = document.createElement("div");
+    fields.className = "pay-fields";
+    const a = fieldEl("金额", "pay_" + k, "number");
+    a.style.width = "100%";
+    const note = fieldEl("备注", "payn_" + k, "text");
+    note.style.width = "100%";
+    note.querySelector("input").placeholder = "选填";
+    fields.appendChild(a);
+    fields.appendChild(note);
+    card.appendChild(fields);
+    payHost.appendChild(card);
+  });
+}
+
+function fieldEl(lab, key, type) {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  wrap.style.width = type === "text" ? "100%" : fieldW(lab) + "px";
+  const label = document.createElement("label");
+  label.textContent = lab;
+  const input = document.createElement("input");
+  input.type = type === "number" ? "number" : "text";
+  input.dataset.key = key;
+  input.value = get(key);
+  if (type === "number") {
+    input.inputMode = "decimal";
+    const intKeys = new Set(["wn"]);
+    if (key.startsWith("p_") || intKeys.has(key)) input.step = "1";
+    else input.step = "0.01";
+  }
+  input.addEventListener("input", () => setVal(key, input.value));
+  wrap.appendChild(label);
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function calcAll() {
+  const v = state.values;
+  const storeTotals = {};
+  STORES.forEach((s) => { storeTotals[s.id] = s.items.reduce((a, it) => a + n(v[it.id]), 0); });
+  const pcOf = (sid) => { const p = n(v["p_" + sid]); return p > 0 ? storeTotals[sid] / p : 0; };
+  const tierRate = { gb: jadeRate(pcOf("gb")), yl: jadeRate(pcOf("yl")), yd: ydRate(pcOf("yd")) };
+  const rows = [];
+  STORES.forEach((s) => s.items.forEach((it) => {
+    const amt = n(v[it.id]); if (!amt) return;
+    let rate = it.rate ?? 0;
+    if (it.tier === "jade") rate = s.id === "yl" ? tierRate.yl : tierRate.gb;
+    if (it.tier === "yd") rate = tierRate.yd;
+    rows.push({ storeId: s.id, store: s.short, item: it.name, amt, back: it.back, rate, comm: r(amt * rate / 100), ret: r(amt * it.back / 100), people: n(v["p_" + s.id]) });
+  }));
+  const shopTotal = rows.reduce((a, x) => a + x.amt, 0);
+  const commTotal = rows.reduce((a, x) => a + x.comm, 0);
+  const retTotal = rows.reduce((a, x) => a + x.ret, 0);
+  const bigStores = STORES.filter((s) => storeTotals[s.id] > 100000).length;
+  const single = bigStores * 1000;
+  const combo = storeTotals.gb + storeTotals.yl + storeTotals.yd > 200000 ? 2000 : 0;
+  const bonus = Math.min(2000, Math.max(single, combo));
+  const jj = r(n(v.jj) * 5);
+  const cx = r(n(v.cx) * 5);
+  const wage = r(n(v.wd) * n(v.wn));
+  const income = commTotal + bonus + jj + cx + wage;
+  const pay = PAY.map((k) => ({ k, a: r(n(v["pay_" + k])), note: (v["payn_" + k] ?? "").trim() }));
+  const payTotal = pay.reduce((a, x) => a + x.a, 0);
+  return { storeTotals, pcOf, tierRate, rows, shopTotal, commTotal, retTotal, bonus, jj, cx, wage, income, pay, payTotal, company: retTotal - commTotal, payable: income + payTotal };
+}
+
+function summaryText(c) {
+  const storeComm = [];
+  STORES.forEach((s) => {
+    const comm = c.rows.filter((x) => x.storeId === s.id).reduce((a, x) => a + x.comm, 0);
+    if (comm > 0) storeComm.push({ name: s.short, comm });
+  });
+  const parts = [
+    ...storeComm.map((x) => `${x.name}${m(x.comm)}`),
+    c.jj > 0 ? `景交${m(c.jj)}` : "",
+    c.cx > 0 ? `车销${m(c.cx)}` : "",
+    c.wage > 0 ? `工资${m(c.wage)}` : "",
+    c.bonus > 0 ? `购物奖励${m(c.bonus)}` : "",
+  ].filter(Boolean);
+  if (!parts.length) return "";
+  const total = storeComm.reduce((a, x) => a + x.comm, 0) + (c.jj > 0 ? c.jj : 0) + (c.cx > 0 ? c.cx : 0) + (c.wage > 0 ? c.wage : 0) + (c.bonus > 0 ? c.bonus : 0);
+  return `${parts.join("+")}=${m(total)}`;
+}
+
+function recalc() {
+  const c = calcAll();
+  document.querySelectorAll("[data-tip]").forEach((el) => {
+    const sid = el.getAttribute("data-tip");
+    if (sid === "gb") el.textContent = `翡翠阶梯 · 人均 ${r(c.pcOf("gb"))} → ${c.tierRate.gb}%`;
+    else if (sid === "yl") el.textContent = `翡翠阶梯 · 人均 ${r(c.pcOf("yl"))} → ${c.tierRate.yl}%`;
+    else if (sid === "yd") el.textContent = `全店人均 ${r(c.pcOf("yd"))} → 一类 ${c.tierRate.yd}%`;
+    else el.textContent = "";
+  });
+  document.querySelectorAll("[data-total]").forEach((el) => {
+    const sid = el.getAttribute("data-total");
+    const t = c.storeTotals[sid] || 0;
+    el.textContent = t > 0 ? `店合计 ${m(t)}` : "";
+  });
+  document.getElementById("incomeHint").textContent = `合计 ${m(c.income)} 元 · 奖励 ${m(c.bonus)}`;
+  document.getElementById("payHint").textContent = `合计 ${m(c.payTotal)} 元 · 不计入工资提成，单独付给导游；每项可填金额与备注`;
+  document.getElementById("totalHint").textContent = `应付导游 ${m(c.payable)} = 工资提成 ${m(c.income)} + 现付 ${m(c.payTotal)}；下方可复制工资提成简写到易途`;
+  document.getElementById("incomeProps").innerHTML = [
+    ["购物提成", c.commTotal], ["购物奖励", c.bonus], ["景交提成", c.jj],
+    ["车销", c.cx], ["导游日薪", c.wage], ["工资提成合计", c.income],
+  ].map(([l, v]) => `<div>${l}：<b>${m(v)}</b></div>`).join("");
+  document.getElementById("metricsHost").innerHTML = [
+    ["应付导游", c.payable], ["工资提成", c.income], ["现付报账", c.payTotal], ["公司实际收入", c.company],
+  ].map(([l, v]) => `<div class="metric"><div class="v">${m(v)}</div><div class="l">${l}</div></div>`).join("");
+
+  document.getElementById("summaryBox").value = summaryText(c) || "（暂无工资提成，填入金额后这里会出现可复制内容）";
+  document.getElementById("sumTuan").textContent = get("tuan") || "—";
+  document.getElementById("sumGuide").textContent = get("guide") || "—";
+  document.getElementById("sumDate").textContent = get("date") || "—";
+  document.getElementById("sumIncomeCards").innerHTML = [
+    ["购物总额", c.shopTotal], ["购物提成", c.commTotal], ["购物奖励", c.bonus],
+    ["景交提成", c.jj], ["车销", c.cx], ["导游日薪", c.wage],
+  ].map(([l, v]) => `<div class="mini-card"><div class="l">${l}</div><div class="v">${m(v)}</div></div>`).join("");
+  document.getElementById("sumCommTotal").textContent = m(c.commTotal);
+  document.querySelector("#sumShopTable tbody").innerHTML = c.rows.map((x) =>
+    `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.amt)}</td><td>${x.rate}%</td><td>${m(x.comm)}</td></tr>`
+  ).join("") || `<tr><td colspan="5">暂无购物明细</td></tr>`;
+  document.getElementById("sumPayCards").innerHTML = c.pay.map((x) =>
+    `<div class="sum-pay-item"><div class="n">${x.k}</div><div class="a">${m(x.a)}</div>${x.note ? `<div class="note">${x.note}</div>` : ""}</div>`
+  ).join("");
+  document.getElementById("sumPayTotal").textContent = m(c.payTotal);
+
+  const meta = [];
+  if (state.currentId) meta.push("记录ID " + state.currentId.slice(-8));
+  if (state.status) meta.push(state.status);
+  if (state.entryDate) meta.push("录入日 " + state.entryDate);
+  document.getElementById("recordMeta").textContent = meta.join(" · ");
+}
+
+function syncInputsFromState() {
+  document.querySelectorAll("input[data-key]").forEach((inp) => {
+    inp.value = get(inp.dataset.key);
+  });
+  document.getElementById("tuan").value = get("tuan");
+  document.getElementById("guide").value = get("guide");
+  document.getElementById("date").value = get("date");
+}
+
+
+function normQ(s) { return String(s || "").trim().toLowerCase(); }
+function guideMatch(g, q) {
+  if (!q) return true;
+  const raw = normQ(g.raw), code = normQ(g.code), name = normQ(g.name);
+  return name.includes(q) || code.includes(q) || raw.includes(q);
+}
+function filterGuides(q, limit) {
+  const qq = normQ(q);
+  const out = [];
+  for (const g of GUIDES) {
+    if (guideMatch(g, qq)) {
+      out.push(g);
+      if (out.length >= (limit || 40)) break;
+    }
+  }
+  return out;
+}
+
+const guidePicker = {
+  open: false,
+  active: -1,
+  items: [],
+};
+
+function renderGuideList(items) {
+  const list = document.getElementById("guideList");
+  guidePicker.items = items;
+  if (!items.length) {
+    list.innerHTML = `<div class="combo-empty">无匹配，可直接输入姓名</div>`;
+  } else {
+    list.innerHTML = items.map((g, i) =>
+      `<div class="combo-item${i === guidePicker.active ? " active" : ""}" data-i="${i}" role="option">` +
+      `${g.raw}<span class="code">${g.name !== g.raw ? g.name : ""}</span></div>`
+    ).join("");
+  }
+  list.querySelectorAll(".combo-item").forEach((el) => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      pickGuide(Number(el.dataset.i));
+    });
+  });
+}
+
+function openGuideList(forceAll) {
+  const inp = document.getElementById("guide");
+  const q = forceAll ? "" : inp.value;
+  guidePicker.active = -1;
+  renderGuideList(filterGuides(q, 40));
+  document.getElementById("guideList").classList.add("open");
+  guidePicker.open = true;
+}
+
+function closeGuideList() {
+  document.getElementById("guideList").classList.remove("open");
+  guidePicker.open = false;
+  guidePicker.active = -1;
+}
+
+function pickGuide(i) {
+  const g = guidePicker.items[i];
+  if (!g) return;
+  const inp = document.getElementById("guide");
+  // 写入易途原名（含编号前缀），如 244.119牟登山
+  inp.value = g.raw;
+  setVal("guide", g.raw);
+  closeGuideList();
+}
+
+function bindGuidePicker() {
+  const inp = document.getElementById("guide");
+  inp.addEventListener("input", (e) => {
+    setVal("guide", e.target.value);
+    openGuideList(false);
+  });
+  inp.addEventListener("focus", () => openGuideList(false));
+  inp.addEventListener("click", () => openGuideList(false));
+  inp.addEventListener("keydown", (e) => {
+    if (!guidePicker.open && (e.key === "ArrowDown" || e.key === "Enter")) {
+      openGuideList(false);
+    }
+    if (!guidePicker.open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!guidePicker.items.length) return;
+      guidePicker.active = (guidePicker.active + 1) % guidePicker.items.length;
+      renderGuideList(guidePicker.items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!guidePicker.items.length) return;
+      guidePicker.active = guidePicker.active <= 0 ? guidePicker.items.length - 1 : guidePicker.active - 1;
+      renderGuideList(guidePicker.items);
+    } else if (e.key === "Enter") {
+      if (guidePicker.active >= 0) {
+        e.preventDefault();
+        pickGuide(guidePicker.active);
+      } else closeGuideList();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeGuideList();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!document.getElementById("guideCombo").contains(e.target)) closeGuideList();
+  });
+}
+
+function bindTopFields() {
+  ["tuan", "date"].forEach((k) => {
+    const el = document.getElementById(k);
+    el.addEventListener("input", (e) => setVal(k, e.target.value));
+    el.addEventListener("change", (e) => setVal(k, e.target.value));
+  });
+  bindGuidePicker();
+}
+
+function switchTab(name) {
+  if (name === "admin" && !isAdmin()) { toast("无管理员权限"); return; }
+  ["fill", "list", "admin"].forEach((t) => {
+    const el = document.getElementById("tab-" + t);
+    if (el) el.classList.toggle("hidden", t !== name);
+  });
+  document.querySelectorAll(".tab").forEach((btn) => {
+    const t = btn.dataset.tab;
+    btn.classList.remove("active-blue", "active-orange");
+    if (t === name) btn.classList.add(t === "fill" ? "active-blue" : "active-orange");
+  });
+  if (name === "list") loadList().catch((e) => toast(e.message));
+  if (name === "admin") {
+    Promise.all([loadAdminUsers(), loadAdminGuides()]).catch((e) => toast(e.message));
+  }
+}
+
+async function saveRecord(status) {
+  const c = calcAll();
+  const payload = {
+    id: state.currentId || undefined,
+    status,
+    tuan: get("tuan"),
+    guide: get("guide"),
+    date: get("date"),
+    entryDate: state.entryDate || undefined,
+    inputs: { ...state.values },
+    totals: {
+      shopTotal: r(c.shopTotal),
+      commTotal: c.commTotal,
+      bonus: c.bonus,
+      jj: c.jj,
+      cx: c.cx,
+      wage: c.wage,
+      income: c.income,
+      payTotal: c.payTotal,
+      payable: c.payable,
+      company: c.company,
+      retTotal: c.retTotal,
+    },
+    rows: c.rows,
+    pay: c.pay,
+    summary: summaryText(c),
+  };
+  const data = await api("/api/records", { method: "POST", body: JSON.stringify(payload) });
+  state.currentId = data.record.id;
+  state.status = data.record.status;
+  state.entryDate = data.record.entryDate;
+  recalc();
+  toast(status === "已确认" ? "已确认保存" : "草稿已保存");
+}
+
+function selectedRecordIds() {
+  return Array.from(document.querySelectorAll("#listTable tbody .rec-check:checked"))
+    .map((el) => el.value)
+    .filter(Boolean);
+}
+
+function syncSelectAllRec() {
+  const all = document.querySelectorAll("#listTable tbody .rec-check");
+  const checked = document.querySelectorAll("#listTable tbody .rec-check:checked");
+  const master = document.getElementById("selectAllRec");
+  if (!master) return;
+  if (!all.length) {
+    master.checked = false;
+    master.indeterminate = false;
+    return;
+  }
+  master.checked = checked.length === all.length;
+  master.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function bindRecordRowEvents(tb) {
+  tb.querySelectorAll("tr.rec-row").forEach((tr) => {
+    const cb = tr.querySelector(".rec-check");
+    if (cb) {
+      cb.addEventListener("click", (ev) => ev.stopPropagation());
+      cb.addEventListener("change", () => {
+        tr.classList.toggle("selected", cb.checked);
+        syncSelectAllRec();
+      });
+    }
+    tr.addEventListener("click", (ev) => {
+      if (ev.target && (ev.target.closest && ev.target.closest("input[type=checkbox]"))) return;
+      openRecord(tr.dataset.id);
+    });
+  });
+  syncSelectAllRec();
+}
+
+async function loadList() {
+  const qs = new URLSearchParams();
+  const g = document.getElementById("qGuide").value.trim();
+  const tuan = document.getElementById("qTuan").value.trim();
+  const e = document.getElementById("qEntry").value.trim();
+  const s = document.getElementById("qStatus").value;
+  if (g) qs.set("guide", g);
+  if (tuan) qs.set("tuan", tuan);
+  if (e) qs.set("entryDate", e);
+  if (s) qs.set("status", s);
+  const data = await api("/api/records?" + qs.toString());
+  const tb = document.querySelector("#listTable tbody");
+  const master = document.getElementById("selectAllRec");
+  if (master) { master.checked = false; master.indeterminate = false; }
+  tb.innerHTML = (data.records || []).map((x) => `
+    <tr class="rec-row" data-id="${x.id}">
+      <td class="rec-check-col"><input type="checkbox" class="rec-check" value="${x.id}" /></td>
+      <td>${x.entryDate || ""}</td>
+      <td><span class="status-tag ${x.status === "已确认" ? "ok" : "draft"}">${x.status}</span></td>
+      <td>${x.tuan || ""}</td>
+      <td>${x.guide || ""}</td>
+      <td>${x.date || ""}</td>
+      <td>${x.income != null && x.income !== "" ? m(x.income) : ""}</td>
+      <td>${x.payTotal != null && x.payTotal !== "" ? m(x.payTotal) : ""}</td>
+      <td>${x.payable != null && x.payable !== "" ? m(x.payable) : ""}</td>
+      <td>${x.updatedAt || ""}</td>
+    </tr>`).join("") || `<tr><td colspan="10">暂无记录</td></tr>`;
+  bindRecordRowEvents(tb);
+}
+
+async function openRecord(id) {
+  const data = await api("/api/records/" + encodeURIComponent(id));
+  const rec = data.record;
+  state.currentId = rec.id;
+  state.status = rec.status;
+  state.entryDate = rec.entryDate;
+  state.values = { ...(rec.inputs || {}) };
+  state.values.tuan = rec.tuan || state.values.tuan || "";
+  state.values.guide = rec.guide || state.values.guide || "";
+  state.values.date = rec.date || state.values.date || chinaToday();
+  syncInputsFromState();
+  recalc();
+  switchTab("fill");
+  toast("已打开：" + (rec.tuan || rec.id));
+}
+
+function newBlank() {
+  resetBlankForm({ toast: true, switchToFill: true });
+}
+
+async function deleteSelected() {
+  const ids = selectedRecordIds();
+  if (!ids.length) { toast("请先勾选要删除的记录"); return; }
+  if (!confirm("确认删除所选 " + ids.length + " 条记录？此操作不可恢复。")) return;
+  const data = await api("/api/records/batch-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+  if (state.currentId && ids.includes(state.currentId)) {
+    resetBlankForm({ switchToFill: false });
+  }
+  await loadList();
+  toast("已删除 " + (data.deletedCount != null ? data.deletedCount : ids.length) + " 条");
+}
+
+async function tryLogin(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  const user = (document.getElementById("authUser").value || "").trim();
+  const pass = (document.getElementById("authPass").value || "").trim();
+  const err = document.getElementById("loginErr");
+  if (!user || !pass) { err.textContent = "请输入用户名和密码"; return; }
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  err.textContent = "";
+  try {
+    const url = (API_BASE || "") + "/api/login";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok || !data.token) {
+      err.textContent = data.error === "disabled" ? "账号已停用" : "用户名或密码不正确";
+      return;
+    }
+    state.code = data.token;
+    state.user = (data.user && data.user.username) || user;
+    state.role = (data.user && data.user.role) || "user";
+    sessionStorage.setItem("gs_token", state.code);
+    sessionStorage.setItem("gs_user", state.user);
+    sessionStorage.setItem("gs_role", state.role);
+    sessionStorage.removeItem("gs_access");
+    await enterApp();
+  } catch (e) {
+    state.code = "";
+    state.user = "";
+    state.role = "";
+    sessionStorage.removeItem("gs_token");
+    sessionStorage.removeItem("gs_user");
+    sessionStorage.removeItem("gs_role");
+    err.textContent = "登录失败，请稍后重试";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function logout() {
+  try {
+    if (state.code) await api("/api/logout", { method: "POST" });
+  } catch (_e) { /* ignore */ }
+  // Wipe in-progress form before clearing auth so next user never sees prior tour data.
+  resetBlankForm({ switchToFill: true });
+  state.code = "";
+  state.user = "";
+  state.role = "";
+  sessionStorage.removeItem("gs_token");
+  sessionStorage.removeItem("gs_access");
+  sessionStorage.removeItem("gs_user");
+  sessionStorage.removeItem("gs_role");
+  clearFormCaches("");
+  applyRoleUI();
+  document.getElementById("appView").classList.add("hidden");
+  document.getElementById("loginView").classList.remove("hidden");
+  const pass = document.getElementById("authPass");
+  if (pass) pass.value = "";
+  const userEl = document.getElementById("authUser");
+  // keep username for convenience; form fields already blanked
+}
+
+function copySummary() {
+  const text = document.getElementById("summaryBox").value || "（暂无工资提成）";
+  const done = () => toast("已复制");
+  const fail = () => {
+    try {
+      const ta = document.getElementById("summaryBox");
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      if (ok) done();
+      else toast("请手动全选复制");
+    } catch (_e) {
+      toast("请手动全选复制");
+    }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else {
+    fail();
+  }
+}
+
+function selfTest() {
+  const bak = { ...state.values };
+  state.values = { sc1: "20164", gb1: "30000", p_gb: "15", date: chinaToday() };
+  const c = calcAll();
+  const ok1 = c.rows.find((x) => x.store === "沙磁" && x.comm === 2016);
+  const ok2 = c.rows.find((x) => x.store === "国博" && x.rate === 17 && x.comm === 5100);
+  const s = summaryText(c);
+  const ok3 = s.includes("沙磁2016") && s.includes("国博5100") && s.includes("=");
+  state.values = bak;
+  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, summary: s, rows: c.rows });
+  return !!(ok1 && ok2 && ok3);
+}
+
+function boot() {
+  buildStores();
+  bindTopFields();
+  document.querySelectorAll(".tab").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+  document.getElementById("clearBtn").onclick = () => {
+    resetBlankForm({ switchToFill: false });
+    toast("已清空");
+  };
+  document.getElementById("saveDraftBtn").onclick = () => saveRecord("草稿").catch((e) => toast(e.message));
+  document.getElementById("confirmBtn").onclick = () => saveRecord("已确认").catch((e) => toast(e.message));
+  document.getElementById("copyBtn").onclick = copySummary;
+  document.getElementById("summaryBox").addEventListener("focus", (e) => e.currentTarget.select());
+  document.getElementById("searchBtn").onclick = () => loadList().catch((e) => toast(e.message));
+  document.getElementById("newRecBtn").onclick = newBlank;
+  document.getElementById("deleteRecBtn").onclick = () => deleteSelected().catch((e) => toast(e.message));
+  document.getElementById("selectAllRec").addEventListener("change", (ev) => {
+    const on = !!ev.currentTarget.checked;
+    document.querySelectorAll("#listTable tbody .rec-check").forEach((cb) => {
+      cb.checked = on;
+      const tr = cb.closest("tr");
+      if (tr) tr.classList.toggle("selected", on);
+    });
+    syncSelectAllRec();
+  });
+  document.getElementById("loginForm").addEventListener("submit", (e) => tryLogin(e));
+  document.getElementById("logoutBtn").onclick = () => logout();
+  document.getElementById("addUserBtn").onclick = () => addUser().catch((e) => toast(e.message));
+  document.getElementById("addGuideBtn").onclick = () => addGuide().catch((e) => toast(e.message));
+  document.getElementById("guideFilterQ").addEventListener("input", () => loadAdminGuides().catch((e) => toast(e.message)));
+  syncInputsFromState();
+  recalc();
+  const ok = selfTest();
+  if (!ok) console.warn("calc self-test failed");
+
+  if (state.code) {
+    api("/api/me").then((data) => {
+      if (data.user) {
+        state.user = data.user.username || state.user;
+        state.role = data.user.role || state.role;
+        sessionStorage.setItem("gs_user", state.user);
+        sessionStorage.setItem("gs_role", state.role);
+      }
+      return enterApp();
+    }).catch(() => logout());
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
