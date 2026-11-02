@@ -77,6 +77,17 @@
   .field label {
     font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; white-space: nowrap;
   }
+  .shop-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+  .shop-row .field { width: auto !important; min-width: 0; }
+  .shop-row .field label { white-space: normal; overflow-wrap: anywhere; line-height: 1.3; }
+  .field label .lab-rate { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .nw { white-space: nowrap; }
+  @media (max-width: 560px) {
+    .shop-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #sumShopTable { font-size: 13px; }
+    #sumShopTable th, #sumShopTable td { padding: 6px; }
+  }
+  @media (max-width: 340px) { .shop-row { grid-template-columns: 1fr; } }
   input, select, textarea, button { font: inherit; color: var(--text); }
   input[type="text"], input[type="number"], input[type="date"], select, textarea {
     border: 2px solid #64748b; border-radius: 8px; padding: 8px 10px;
@@ -762,11 +773,11 @@ function buildStores() {
     head.className = "store-head";
     head.innerHTML = `<span class="store-name">${s.name}</span><span class="store-tip" data-tip="${s.id}"></span><span class="store-tip" data-total="${s.id}"></span>`;
     const row = document.createElement("div");
-    row.className = "row";
+    row.className = "row shop-row";
     if (s.people) row.appendChild(fieldEl(s.people, "p_" + s.id, "number"));
     s.items.filter((it) => it.rate !== 0).forEach((it) => {
-      const lab = `${it.name} · 返公司 ${typeof it.back === "number" ? it.back + "%" : "待确认"}${it.tier ? "" : ` ｜ 导游 ${it.rate ?? 0}%`}`;
-      row.appendChild(fieldEl(lab, it.id, "number"));
+      const sub = `返公司 ${typeof it.back === "number" ? it.back + "%" : "待确认"}${it.tier ? "" : ` ｜ 导游 ${it.rate ?? 0}%`}`;
+      row.appendChild(fieldEl(it.name, it.id, "number", sub));
     });
     box.appendChild(head);
     box.appendChild(row);
@@ -802,12 +813,13 @@ function buildStores() {
   });
 }
 
-function fieldEl(lab, key, type) {
+function fieldEl(lab, key, type, sub) {
   const wrap = document.createElement("div");
   wrap.className = "field";
   wrap.style.width = type === "text" ? "100%" : fieldW(lab) + "px";
   const label = document.createElement("label");
   label.textContent = lab;
+  if (sub) { const sp = document.createElement("span"); sp.className = "lab-rate"; sub.split(" ｜ ").forEach((t, i) => { if (i) sp.appendChild(document.createTextNode(" ｜ ")); const q = document.createElement("span"); q.className = "nw"; q.textContent = t; sp.appendChild(q); }); label.appendChild(sp); }
   const input = document.createElement("input");
   input.type = type === "number" ? "number" : "text";
   input.dataset.key = key;
@@ -907,7 +919,7 @@ function recalc() {
   ].map(([l, v]) => `<div class="mini-card"><div class="l">${l}</div><div class="v">${m(v)}</div></div>`).join("");
   document.getElementById("sumCommTotal").textContent = m(c.commTotal);
   document.querySelector("#sumShopTable tbody").innerHTML = c.rows.map((x) =>
-    `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.amt)}</td><td>返公司 ${typeof x.back === "number" ? x.back + "%" : "待确认"}${(STORES.find((s) => s.id === x.storeId)?.items.find((i) => i.name === x.item) || {}).tier ? "" : ` ｜ 导游 ${x.rate}%`}</td><td>${m(x.comm)}</td></tr>`
+    `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.amt)}</td><td><span class="nw">返公司 ${typeof x.back === "number" ? x.back + "%" : "待确认"}</span>${(STORES.find((s) => s.id === x.storeId)?.items.find((i) => i.name === x.item) || {}).tier ? "" : ` ｜ <span class="nw">导游 ${x.rate}%</span>`}</td><td>${m(x.comm)}</td></tr>`
   ).join("") || `<tr><td colspan="5">暂无购物明细</td></tr>`;
   document.getElementById("sumPayCards").innerHTML = c.pay.map((x) =>
     `<div class="sum-pay-item"><div class="n">${x.k}</div><div class="a">${m(x.a)}</div>${x.note ? `<div class="note">${x.note}</div>` : ""}</div>`
