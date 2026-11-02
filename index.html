@@ -1304,10 +1304,10 @@ function selfTest() {
   const bak = { ...state.values };
   state.values = { sc1: "20164", gb1: "30000", p_gb: "15", date: chinaToday() };
   const c = calcAll();
-  const ok1 = c.rows.find((x) => x.store === "沙磁" && x.comm === 2016);
+  const ok1 = c.rows.find((x) => x.store === "沙磁" && x.comm === 2016.4);
   const ok2 = c.rows.find((x) => x.store === "国博" && x.rate === 17 && x.comm === 5100);
   const s = summaryText(c);
-  const ok3 = s.includes("沙磁2016") && s.includes("国博5100") && s.includes("=");
+  const ok3 = s.includes("沙磁2016.40") && s.includes("国博5100.00") && s.includes("=");
   state.values = bak;
   console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, summary: s, rows: c.rows });
   return !!(ok1 && ok2 && ok3);
