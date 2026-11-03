@@ -389,7 +389,7 @@
       <div style="display:grid;gap:12px">
         <div class="actions" style="margin-top:0">
           <button class="btn primary" id="copyBtn" type="button">复制工资提成</button>
-          <span class="hint" style="margin:0">一行：店名金额+景交+车销+工资+奖励=合计；无效时可全选下方文字</span>
+          <span class="hint" style="margin:0">一行：店名金额*比例%+景交+工资+奖励=合计；无效时可全选下方文字</span>
         </div>
         <textarea id="summaryBox" readonly rows="3"></textarea>
       </div>
@@ -527,6 +527,24 @@ function jadeRate(pc) {
 }
 function ydRate(pc) {
   if (pc <= 600) return 12; if (pc <= 900) return 15; if (pc <= 1200) return 17; if (pc <= 1500) return 19; if (pc <= 1800) return 20; return 21;
+}
+/** 国博/一带一路单独政策：仅按导游名匹配（可含编号前缀） */
+const JADE_FLAT20 = ["符雅云", "钟志文", "骆远鹏", "林宁"];
+const JADE_FLOOR20 = ["朱可佳", "陈学洁", "陈明"];
+function guideHas(guide, names) {
+  const g = String(guide || "").replace(/\s+/g, "");
+  return names.some((n) => g.includes(String(n).replace(/\s+/g, "")));
+}
+function jadePolicyOf(guide) {
+  if (guideHas(guide, JADE_FLAT20)) return "flat20";
+  if (guideHas(guide, JADE_FLOOR20)) return "floor20";
+  return "standard";
+}
+function jadeRateForGuide(guide, pc) {
+  const pol = jadePolicyOf(guide);
+  if (pol === "flat20") return 20;
+  if (pol === "floor20") return jadeRate(pc) >= 21 ? 21 : 20;
+  return jadeRate(pc);
 }
 const n = (s) => { const v = parseFloat(s ?? ""); return isFinite(v) ? v : 0; };
 const r = (v) => Math.round(Number(v) * 100) / 100;
@@ -774,7 +792,11 @@ function buildStores() {
     head.innerHTML = `<span class="store-name">${s.name}</span><span class="store-tip" data-tip="${s.id}"></span><span class="store-tip" data-total="${s.id}"></span>`;
     const row = document.createElement("div");
     row.className = "row shop-row";
-    if (s.people) row.appendChild(fieldEl(s.people, "p_" + s.id, "number"));
+    if (s.people) {
+      const pe = fieldEl(s.people, "p_" + s.id, "number");
+      pe.dataset.peopleFor = s.id;
+      row.appendChild(pe);
+    }
     s.items.filter((it) => it.rate !== 0).forEach((it) => {
       const sub = `返公司 ${typeof it.back === "number" ? it.back + "%" : "待确认"}${it.tier ? "" : ` ｜ 导游 ${it.rate ?? 0}%`}`;
       row.appendChild(fieldEl(it.name, it.id, "number", sub));
@@ -838,10 +860,16 @@ function fieldEl(lab, key, type, sub) {
 
 function calcAll() {
   const v = state.values;
+  const guide = v.guide ?? "";
+  const jadePol = jadePolicyOf(guide);
   const storeTotals = {};
   STORES.forEach((s) => { storeTotals[s.id] = s.items.reduce((a, it) => a + n(v[it.id]), 0); });
   const pcOf = (sid) => { const p = n(v["p_" + sid]); return p > 0 ? storeTotals[sid] / p : 0; };
-  const tierRate = { gb: jadeRate(pcOf("gb")), yl: jadeRate(pcOf("yl")), yd: ydRate(pcOf("yd")) };
+  const tierRate = {
+    gb: jadeRateForGuide(guide, pcOf("gb")),
+    yl: jadeRateForGuide(guide, pcOf("yl")),
+    yd: ydRate(pcOf("yd")),
+  };
   const rows = [];
   STORES.forEach((s) => s.items.forEach((it) => {
     const amt = n(v[it.id]); if (!amt) return;
@@ -863,24 +891,29 @@ function calcAll() {
   const income = commTotal + bonus + jj + cx + wage;
   const pay = PAY.map((k) => ({ k, a: r(n(v["pay_" + k])), note: (v["payn_" + k] ?? "").trim() }));
   const payTotal = pay.reduce((a, x) => a + x.a, 0);
-  return { storeTotals, pcOf, tierRate, rows, shopTotal, commTotal, retTotal, bonus, jj, cx, wage, income, pay, payTotal, company: retTotal - commTotal, payable: income + payTotal };
+  return { storeTotals, pcOf, tierRate, jadePol, rows, shopTotal, commTotal, retTotal, bonus, jj, cx, wage, income, pay, payTotal, company: retTotal - commTotal, payable: income + payTotal };
 }
 
 function summaryText(c) {
-  const storeComm = [];
+  const storeParts = [];
   STORES.forEach((s) => {
-    const comm = c.rows.filter((x) => x.storeId === s.id).reduce((a, x) => a + x.comm, 0);
-    if (comm > 0) storeComm.push({ name: s.short, comm });
+    const rows = c.rows.filter((x) => x.storeId === s.id);
+    if (!rows.length) return;
+    const rateParts = rows.map((x) => {
+      const amtStr = Number.isInteger(x.amt) ? String(x.amt) : m(x.amt);
+      return `${amtStr}*${x.rate}%`;
+    });
+    storeParts.push(rows.length === 1 ? `${s.short}${rateParts[0]}` : `${s.short}(${rateParts.join("+")})`);
   });
   const parts = [
-    ...storeComm.map((x) => `${x.name}${m(x.comm)}`),
+    ...storeParts,
     c.jj > 0 ? `景交${m(c.jj)}` : "",
     c.cx > 0 ? `车销${m(c.cx)}` : "",
     c.wage > 0 ? `工资${m(c.wage)}` : "",
     c.bonus > 0 ? `购物奖励${m(c.bonus)}` : "",
   ].filter(Boolean);
   if (!parts.length) return "";
-  const total = storeComm.reduce((a, x) => a + x.comm, 0) + (c.jj > 0 ? c.jj : 0) + (c.cx > 0 ? c.cx : 0) + (c.wage > 0 ? c.wage : 0) + (c.bonus > 0 ? c.bonus : 0);
+  const total = c.rows.reduce((a, x) => a + x.comm, 0) + (c.jj > 0 ? c.jj : 0) + (c.cx > 0 ? c.cx : 0) + (c.wage > 0 ? c.wage : 0) + (c.bonus > 0 ? c.bonus : 0);
   return `${parts.join("+")}=${m(total)}`;
 }
 
@@ -888,10 +921,19 @@ function recalc() {
   const c = calcAll();
   document.querySelectorAll("[data-tip]").forEach((el) => {
     const sid = el.getAttribute("data-tip");
-    if (sid === "gb") el.textContent = `翡翠阶梯 · 人均 ${r(c.pcOf("gb"))} → ${c.tierRate.gb}%`;
-    else if (sid === "yl") el.textContent = `翡翠阶梯 · 人均 ${r(c.pcOf("yl"))} → ${c.tierRate.yl}%`;
-    else if (sid === "yd") el.textContent = `全店人均 ${r(c.pcOf("yd"))} → 一类 ${c.tierRate.yd}%`;
+    if (sid === "gb" || sid === "yl") {
+      const rate = sid === "gb" ? c.tierRate.gb : c.tierRate.yl;
+      const pc = r(c.pcOf(sid));
+      if (c.jadePol === "flat20") el.textContent = `单独政策 · 通提 20% 封顶（不设人均）→ ${rate}%`;
+      else if (c.jadePol === "floor20") el.textContent = `单独政策 · 保底 20%，人均达 21% 档可提 21 · 人均 ${pc} → ${rate}%`;
+      else el.textContent = `翡翠阶梯 · 人均 ${pc} → ${rate}%`;
+    } else if (sid === "yd") el.textContent = `全店人均 ${r(c.pcOf("yd"))} → 一类 ${c.tierRate.yd}%`;
     else el.textContent = "";
+  });
+  document.querySelectorAll("[data-people-for]").forEach((el) => {
+    const sid = el.getAttribute("data-people-for");
+    const hide = c.jadePol === "flat20" && (sid === "gb" || sid === "yl");
+    el.style.display = hide ? "none" : "";
   });
   document.querySelectorAll("[data-total]").forEach((el) => {
     const sid = el.getAttribute("data-total");
@@ -1307,10 +1349,19 @@ function selfTest() {
   const ok1 = c.rows.find((x) => x.store === "沙磁" && x.comm === 2016.4);
   const ok2 = c.rows.find((x) => x.store === "国博" && x.rate === 17 && x.comm === 5100);
   const s = summaryText(c);
-  const ok3 = s.includes("沙磁2016.40") && s.includes("国博5100.00") && s.includes("=");
+  const ok3 = s.includes("沙磁20164*10%") && s.includes("国博30000*17%") && s.includes("=") && s.endsWith("=7116.40");
+  state.values = { guide: "244.7017朱可佳", gb1: "30000", p_gb: "15", date: chinaToday() };
+  const c2 = calcAll();
+  const ok4 = c2.jadePol === "floor20" && c2.tierRate.gb === 20;
+  state.values = { guide: "符雅云", gb1: "30000", p_gb: "15", date: chinaToday() };
+  const c3 = calcAll();
+  const ok5 = c3.jadePol === "flat20" && c3.tierRate.gb === 20;
+  state.values = { guide: "朱可佳", gb1: "40000", p_gb: "10", date: chinaToday() }; // pc=4000 → 21
+  const c4 = calcAll();
+  const ok6 = c4.jadePol === "floor20" && c4.tierRate.gb === 21;
   state.values = bak;
-  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, summary: s, rows: c.rows });
-  return !!(ok1 && ok2 && ok3);
+  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, ok4, ok5, ok6, summary: s, rows: c.rows });
+  return !!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6);
 }
 
 function boot() {
