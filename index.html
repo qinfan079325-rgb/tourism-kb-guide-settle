@@ -125,7 +125,7 @@
   .props div { font-size: 15px; font-weight: 650; }
   .props b { color: var(--blue); }
   .metrics {
-    display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-top: 8px;
+    display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 8px;
   }
   @media (max-width: 700px) {
     .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -372,7 +372,7 @@
             <span id="sumCommTotal" style="font-size:24px;font-weight:800;color:var(--blue)">0</span>
           </div>
           <div style="overflow:auto;margin-top:12px">
-            <table id="sumShopTable"><thead><tr><th>店</th><th>项目</th><th>金额</th><th>返公司 ｜ 导游</th><th>提成</th></tr></thead><tbody></tbody></table>
+            <table id="sumShopTable"><thead><tr><th>店</th><th>项目</th><th>金额</th><th>导游比例</th><th>提成</th></tr></thead><tbody></tbody></table>
           </div>
         </div>
 
@@ -906,7 +906,7 @@ function recalc() {
     ["车销", c.cx], ["导游日薪", c.wage], ["工资提成合计", c.income],
   ].map(([l, v]) => `<div>${l}：<b>${m(v)}</b></div>`).join("");
   document.getElementById("metricsHost").innerHTML = [
-    ["应付导游", c.payable], ["工资提成", c.income], ["现付报账", c.payTotal], ["公司实际收入", c.company],
+    ["应付导游", c.payable], ["工资提成", c.income], ["现付报账", c.payTotal],
   ].map(([l, v]) => `<div class="metric"><div class="v">${m(v)}</div><div class="l">${l}</div></div>`).join("");
 
   document.getElementById("summaryBox").value = summaryText(c) || "（暂无工资提成，填入金额后这里会出现可复制内容）";
@@ -919,7 +919,7 @@ function recalc() {
   ].map(([l, v]) => `<div class="mini-card"><div class="l">${l}</div><div class="v">${m(v)}</div></div>`).join("");
   document.getElementById("sumCommTotal").textContent = m(c.commTotal);
   document.querySelector("#sumShopTable tbody").innerHTML = c.rows.map((x) =>
-    `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.amt)}</td><td><span class="nw">返公司 ${typeof x.back === "number" ? x.back + "%" : "待确认"}</span>${(STORES.find((s) => s.id === x.storeId)?.items.find((i) => i.name === x.item) || {}).tier ? "" : ` ｜ <span class="nw">导游 ${x.rate}%</span>`}</td><td>${m(x.comm)}</td></tr>`
+    `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.amt)}</td><td><span class="nw">导游 ${x.rate}%</span></td><td>${m(x.comm)}</td></tr>`
   ).join("") || `<tr><td colspan="5">暂无购物明细</td></tr>`;
   document.getElementById("sumPayCards").innerHTML = c.pay.map((x) =>
     `<div class="sum-pay-item"><div class="n">${x.k}</div><div class="a">${m(x.a)}</div>${x.note ? `<div class="note">${x.note}</div>` : ""}</div>`
