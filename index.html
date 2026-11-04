@@ -289,14 +289,17 @@
   .refund-row .field label { color: #9a3412; font-size: 13px; }
   .refund-row input { border-color: #fb923c; min-height: 36px; }
   .store-tip.refund-tip { color: #c2410c; }
-  .rec-expand-col { width: 28px; text-align: center; }
+  .rec-expand-col { width: 40px; text-align: center; vertical-align: middle; }
   .rec-expand {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; border-radius: 6px; cursor: pointer;
-    color: var(--blue); font-weight: 900; user-select: none;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 34px; min-height: 38px; padding: 3px 4px; border-radius: 8px; cursor: pointer;
+    color: var(--blue); font-weight: 900; user-select: none; line-height: 1.05;
+    border: 1px solid #bfdbfe; background: #eff6ff;
   }
-  .rec-expand:hover { background: #dbeafe; }
-  .rec-expand.empty { visibility: hidden; cursor: default; }
+  .rec-expand .rec-expand-arrow { font-size: 12px; }
+  .rec-expand .rec-expand-label { font-size: 10px; font-weight: 750; color: #64748b; letter-spacing: .04em; }
+  .rec-expand:hover { background: #dbeafe; border-color: #93c5fd; }
+  .rec-expand.empty { opacity: .45; }
   .rec-detail td { background: #f8fafc; padding: 10px 12px; }
   .rec-detail-table { width: 100%; margin: 0; font-size: 13px; background: #fff; }
   .rec-detail-table th { background: #eef2ff; }
@@ -1351,6 +1354,73 @@ function syncSelectAllRec() {
   master.indeterminate = checked.length > 0 && checked.length < all.length;
 }
 
+
+function setExpandAffordance(expand, open) {
+  if (!expand) return;
+  const arrow = expand.querySelector(".rec-expand-arrow");
+  if (arrow) arrow.textContent = open ? "▼" : "▶";
+  else expand.textContent = open ? "▼" : "▶";
+  expand.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function renderStoreDetailRows(stores) {
+  if (!stores.length) {
+    return `<tr><td colspan="5" class="hint">暂无出货购物店</td></tr>`;
+  }
+  return stores.map((s) =>
+    `<tr><td>${s.short || s.name || s.id}</td><td>${m(s.ship)}</td><td>${Number(s.refund) > 0 ? m(s.refund) : "—"}</td><td>${s.refundDate || "—"}</td><td>${m(s.net != null ? s.net : Math.max(0, Number(s.ship) - Number(s.refund || 0)))}</td></tr>`
+  ).join("");
+}
+
+function ensureRecordDetailRow(tb, id, stores, { needsLoad } = {}) {
+  let detail = tb.querySelector('tr.rec-detail[data-for="' + id + '"]');
+  const body = `
+      <td colspan="13">
+        <table class="rec-detail-table">
+          <thead><tr><th>购物店</th><th>出货</th><th>退货</th><th>退货日期</th><th>净额</th></tr></thead>
+          <tbody>${renderStoreDetailRows(stores)}</tbody>
+        </table>
+      </td>`;
+  if (!detail) {
+    const tr = tb.querySelector('tr.rec-row[data-id="' + id + '"]');
+    if (!tr) return null;
+    detail = document.createElement("tr");
+    detail.className = "rec-detail hidden";
+    detail.dataset.for = id;
+    detail.innerHTML = body;
+    tr.insertAdjacentElement("afterend", detail);
+  } else {
+    detail.innerHTML = body;
+  }
+  if (needsLoad) detail.dataset.needsLoad = "1";
+  else delete detail.dataset.needsLoad;
+  return detail;
+}
+
+async function toggleRecordExpand(tr, tb, expand) {
+  const id = tr.dataset.id;
+  let detail = tb.querySelector('tr.rec-detail[data-for="' + id + '"]');
+  const needsLoad = !detail || detail.dataset.needsLoad === "1";
+  if (needsLoad) {
+    expand.setAttribute("aria-busy", "true");
+    try {
+      const data = await api("/api/records/" + encodeURIComponent(id));
+      const rec = data.record || {};
+      let ss = Array.isArray(rec.storeSummary) ? rec.storeSummary : [];
+      if (!ss.length) ss = buildStoreSummaryFromValues(rec.inputs || {});
+      const stores = ss.filter((s) => Number(s.ship) > 0);
+      detail = ensureRecordDetailRow(tb, id, stores, { needsLoad: false });
+      // cache onto row dataset for subsequent toggles without refetch
+      tr.dataset.storeSummaryReady = "1";
+    } finally {
+      expand.removeAttribute("aria-busy");
+    }
+  }
+  if (!detail) return;
+  const open = detail.classList.toggle("hidden") === false;
+  setExpandAffordance(expand, open);
+}
+
 function bindRecordRowEvents(tb) {
   tb.querySelectorAll("tr.rec-row").forEach((tr) => {
     const cb = tr.querySelector(".rec-check");
@@ -1362,14 +1432,17 @@ function bindRecordRowEvents(tb) {
       });
     }
     const expand = tr.querySelector(".rec-expand");
-    if (expand && !expand.classList.contains("empty")) {
+    if (expand) {
       expand.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        const detail = tb.querySelector('tr.rec-detail[data-for="' + tr.dataset.id + '"]');
-        if (!detail) return;
-        const open = detail.classList.toggle("hidden") === false;
-        expand.textContent = open ? "▼" : "▶";
-        expand.setAttribute("aria-expanded", open ? "true" : "false");
+        toggleRecordExpand(tr, tb, expand).catch((e) => toast(e.message || String(e)));
+      });
+      expand.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleRecordExpand(tr, tb, expand).catch((e) => toast(e.message || String(e)));
+        }
       });
     }
     const openBtn = tr.querySelector(".rec-open");
@@ -1432,7 +1505,9 @@ async function loadList() {
   if (master) { master.checked = false; master.indeterminate = false; }
   tb.innerHTML = (data.records || []).map((x) => {
     const confirmed = x.status === "已确认";
-    const stores = Array.isArray(x.storeSummary) ? x.storeSummary.filter((s) => Number(s.ship) > 0) : [];
+    const hasSummary = Array.isArray(x.storeSummary);
+    const stores = hasSummary ? x.storeSummary.filter((s) => Number(s.ship) > 0) : [];
+    const needsLoad = !hasSummary;
     const hasRefund = recordHasRefund(x);
     const yituBtn = confirmed
       ? `<button type="button" class="btn sm ok rec-notify-yitu" data-id="${x.id}">通知录易途</button>`
@@ -1446,21 +1521,16 @@ async function loadList() {
     const yituRefundBadge = (confirmed && hasRefund)
       ? `<span class="status-tag ${yituRefundClass(x.yituRefundStatus)}">${yituRefundLabel(x.yituRefundStatus)}</span>`
       : "";
-    const expandCell = stores.length
-      ? `<span class="rec-expand" role="button" tabindex="0" aria-expanded="false" title="展开购物店">▶</span>`
-      : `<span class="rec-expand empty">▶</span>`;
-    const detailRows = stores.map((s) =>
-      `<tr><td>${s.short || s.name || s.id}</td><td>${m(s.ship)}</td><td>${Number(s.refund) > 0 ? m(s.refund) : "—"}</td><td>${s.refundDate || "—"}</td><td>${m(s.net != null ? s.net : Math.max(0, Number(s.ship) - Number(s.refund || 0)))}</td></tr>`
-    ).join("");
-    const detail = stores.length ? `
-    <tr class="rec-detail hidden" data-for="${x.id}">
+    const expandCell = `<span class="rec-expand${hasSummary && !stores.length ? " empty" : ""}" role="button" tabindex="0" aria-expanded="false" title="展开各店出货/退货"><span class="rec-expand-arrow">▶</span><span class="rec-expand-label">店</span></span>`;
+    const detail = `
+    <tr class="rec-detail hidden" data-for="${x.id}"${needsLoad ? ' data-needs-load="1"' : ""}>
       <td colspan="13">
         <table class="rec-detail-table">
           <thead><tr><th>购物店</th><th>出货</th><th>退货</th><th>退货日期</th><th>净额</th></tr></thead>
-          <tbody>${detailRows}</tbody>
+          <tbody>${renderStoreDetailRows(stores)}</tbody>
         </table>
       </td>
-    </tr>` : "";
+    </tr>`;
     return `
     <tr class="rec-row" data-id="${x.id}">
       <td class="rec-check-col"><input type="checkbox" class="rec-check" value="${x.id}" /></td>
