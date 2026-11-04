@@ -197,6 +197,11 @@
   }
   .status-tag.draft { background: #fef3c7; color: #92400e; }
   .status-tag.ok { background: #d1fae5; color: #065f46; }
+  .status-tag.yitu-pending { background: #f3f4f6; color: #4b5563; }
+  .status-tag.yitu-notified { background: #dbeafe; color: #1e40af; }
+  .status-tag.yitu-done { background: #d1fae5; color: #065f46; }
+  .status-tag.yitu-failed { background: #fee2e2; color: #991b1b; }
+  .yitu-cell { display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
   .list-toolbar {
     display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 12px;
   }
@@ -432,7 +437,7 @@
           <thead>
             <tr>
               <th class="rec-check-col"><input type="checkbox" id="selectAllRec" title="全选" /></th>
-              <th>录入日期</th><th>状态</th><th>团号</th><th>导游</th><th>出团日期</th>
+              <th>录入日期</th><th>状态</th><th>易途</th><th>团号</th><th>导游</th><th>出团日期</th>
               <th>工资提成</th><th>现付</th><th>应付</th><th>更新时间</th><th>操作</th>
             </tr>
           </thead>
@@ -616,7 +621,7 @@ async function api(path, opts = {}) {
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) throw new Error("未登录或登录已失效");
   if (res.status === 403) throw new Error("无权限");
-  if (!res.ok || data.ok === false) throw new Error(data.error || ("HTTP " + res.status));
+  if (!res.ok || data.ok === false) throw new Error(data.message || data.error || ("HTTP " + res.status));
   return data;
 }
 
@@ -1157,7 +1162,50 @@ async function saveRecord(status) {
   state.status = data.record.status;
   state.entryDate = data.record.entryDate;
   recalc();
-  toast(status === "已确认" ? "已确认保存" : "草稿已保存");
+  if (status === "已确认") {
+    toast("已确认保存");
+    try {
+      await notifyYituRecord(data.record.id, { quiet: true });
+      toast("已确认保存，并已通知录易途");
+    } catch (e) {
+      /* notifyYituRecord already toasted */
+    }
+  } else {
+    toast("草稿已保存");
+  }
+}
+
+
+function yituLabel(s) {
+  const v = String(s || "pending").toLowerCase();
+  if (v === "notified") return "已通知";
+  if (v === "done") return "已录入";
+  if (v === "failed") return "录入失败";
+  return "未通知";
+}
+
+function yituClass(s) {
+  const v = String(s || "pending").toLowerCase();
+  if (v === "notified") return "yitu-notified";
+  if (v === "done") return "yitu-done";
+  if (v === "failed") return "yitu-failed";
+  return "yitu-pending";
+}
+
+async function notifyYituRecord(id, { quiet } = {}) {
+  try {
+    const data = await api("/api/records/" + encodeURIComponent(id) + "/notify-yitu", { method: "POST", body: "{}" });
+    if (!quiet) toast("已通知录易途");
+    return data;
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    if (/yitu_webhook_not_configured/.test(msg)) {
+      toast("已确认，但未配置录易途通知（YITU_NOTIFY_WEBHOOK）");
+    } else if (!quiet) {
+      toast("通知录易途失败：" + msg);
+    }
+    throw e;
+  }
 }
 
 function selectedRecordIds() {
@@ -1204,6 +1252,17 @@ function bindRecordRowEvents(tb) {
         downloadRecordImage(tr.dataset.id).catch((e) => toast("生成失败：" + (e.message || e)));
       });
     }
+    const nyBtn = tr.querySelector(".rec-notify-yitu");
+    if (nyBtn) {
+      nyBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        nyBtn.disabled = true;
+        notifyYituRecord(tr.dataset.id)
+          .then(() => loadList().catch(() => {}))
+          .catch(() => {})
+          .finally(() => { nyBtn.disabled = false; });
+      });
+    }
     tr.addEventListener("click", (ev) => {
       if (ev.target && ev.target.closest && (ev.target.closest("input[type=checkbox]") || ev.target.closest("button") || ev.target.closest(".rec-actions"))) return;
       openRecord(tr.dataset.id).catch((e) => toast(e.message || String(e)));
@@ -1226,11 +1285,20 @@ async function loadList() {
   const tb = document.querySelector("#listTable tbody");
   const master = document.getElementById("selectAllRec");
   if (master) { master.checked = false; master.indeterminate = false; }
-  tb.innerHTML = (data.records || []).map((x) => `
+  tb.innerHTML = (data.records || []).map((x) => {
+    const confirmed = x.status === "已确认";
+    const yituBtn = confirmed
+      ? `<button type="button" class="btn sm ok rec-notify-yitu" data-id="${x.id}">通知录易途</button>`
+      : "";
+    const yituBadge = confirmed
+      ? `<span class="status-tag ${yituClass(x.yituStatus)}">${yituLabel(x.yituStatus)}</span>`
+      : `<span class="hint">—</span>`;
+    return `
     <tr class="rec-row" data-id="${x.id}">
       <td class="rec-check-col"><input type="checkbox" class="rec-check" value="${x.id}" /></td>
       <td>${x.entryDate || ""}</td>
-      <td><span class="status-tag ${x.status === "已确认" ? "ok" : "draft"}">${x.status}</span></td>
+      <td><span class="status-tag ${confirmed ? "ok" : "draft"}">${x.status}</span></td>
+      <td class="yitu-cell">${yituBadge}</td>
       <td>${x.tuan || ""}</td>
       <td>${x.guide || ""}</td>
       <td>${x.date || ""}</td>
@@ -1241,8 +1309,10 @@ async function loadList() {
       <td class="rec-actions">
         <button type="button" class="btn sm ghost rec-open" data-id="${x.id}">打开</button>
         <button type="button" class="btn sm primary rec-dl" data-id="${x.id}">下载图片</button>
+        ${yituBtn}
       </td>
-    </tr>`).join("") || `<tr><td colspan="11">暂无记录</td></tr>`;
+    </tr>`;
+  }).join("") || `<tr><td colspan="12">暂无记录</td></tr>`;
   bindRecordRowEvents(tb);
 }
 
