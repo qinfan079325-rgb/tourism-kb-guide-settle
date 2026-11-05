@@ -971,6 +971,8 @@ function calcAll() {
   const cx = r(n(v.cx) * 5);
   const wage = r(n(v.wd) * n(v.wn));
   const income = commTotal + bonus + jj + cx + wage;
+  // 导管提成：购物净额×2%，固定；不计入工资提成/应付导游
+  const catheterComm = r(netShopTotal * 0.02);
   const pay = PAY.map((k) => ({ k, a: r(n(v["pay_" + k])), note: (v["payn_" + k] ?? "").trim() }));
   const payTotal = pay.reduce((a, x) => a + x.a, 0);
   const storeSummary = buildStoreSummaryFromValues(v);
@@ -978,7 +980,7 @@ function calcAll() {
     storeTotals, refundTotals, netStoreTotals, storeScale, storeSummary,
     pcOf, tierRate, jadePol, rows,
     shopTotal: netShopTotal, shipTotal, refundTotal, netShopTotal,
-    commTotal, retTotal, bonus, jj, cx, wage, income, pay, payTotal,
+    commTotal, retTotal, bonus, jj, cx, wage, income, catheterComm, pay, payTotal,
     company: retTotal - commTotal, payable: income + payTotal,
   };
 }
@@ -1040,6 +1042,7 @@ function recalc() {
   document.getElementById("incomeProps").innerHTML = [
     ["购物提成", c.commTotal], ["购物奖励", c.bonus], ["景交提成", c.jj],
     ["车销", c.cx], ["导游日薪", c.wage], ["工资提成合计", c.income],
+    ["导管提成", c.catheterComm],
   ].map(([l, v]) => `<div>${l}：<b>${m(v)}</b></div>`).join("");
   document.getElementById("metricsHost").innerHTML = [
     ["应付导游", c.payable], ["工资提成", c.income], ["现付报账", c.payTotal],
@@ -1053,6 +1056,7 @@ function recalc() {
     [c.refundTotal > 0 ? "购物净额" : "购物总额", c.shopTotal],
     ["购物提成", c.commTotal], ["购物奖励", c.bonus],
     ["景交提成", c.jj], ["车销", c.cx], ["导游日薪", c.wage],
+    ["导管提成(不计应付)", c.catheterComm],
   ];
   if (c.refundTotal > 0) incomeCards.splice(1, 0, ["退货合计", c.refundTotal]);
   document.getElementById("sumIncomeCards").innerHTML = incomeCards.map(([l, v]) => `<div class="mini-card"><div class="l">${l}</div><div class="v">${m(v)}</div></div>`).join("");
@@ -1239,6 +1243,7 @@ async function saveRecord(status) {
       payable: c.payable,
       company: c.company,
       retTotal: c.retTotal,
+      catheterComm: c.catheterComm,
     },
     storeSummary: c.storeSummary,
     rows: c.rows,
@@ -1701,6 +1706,7 @@ function buildSummaryCaptureEl(meta, c) {
     [c.refundTotal > 0 ? "购物净额" : "购物总额", c.shopTotal],
     ["购物提成", c.commTotal], ["购物奖励", c.bonus],
     ["景交提成", c.jj], ["车销", c.cx], ["导游日薪", c.wage],
+    ["导管提成(不计应付)", c.catheterComm],
   ];
   if (c.refundTotal > 0) incomeCardDefs.splice(1, 0, ["退货合计", c.refundTotal]);
   const incomeCards = incomeCardDefs.map(([l, v]) =>
@@ -1858,9 +1864,13 @@ function selfTest() {
   const c5 = calcAll();
   const scRow = c5.rows.find((x) => x.store === "沙磁");
   const ok7 = c5.shipTotal === 20164 && c5.refundTotal === 2016.4 && scRow && scRow.shipAmt === 20164 && scRow.amt === 18147.6 && scRow.comm === 1814.76;
+  // 导管提成 = 购物净额×2%，不进 income/payable；复制工资提成不含导管
+  const incomeBeforeCatheter = c.income;
+  const ok8 = c.catheterComm === 1003.28 && c.shopTotal === 50164 && !s.includes("导管") && c.payable === c.income + c.payTotal;
+  const ok9 = c5.catheterComm === 362.95 && c5.income === scRow.comm && c5.payable === c5.income;
   state.values = bak;
-  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, ok4, ok5, ok6, ok7: !!ok7, summary: s, rows: c.rows, refundRow: scRow });
-  return !!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7);
+  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, ok4, ok5, ok6, ok7: !!ok7, ok8, ok9, summary: s, rows: c.rows, refundRow: scRow, catheterComm: c.catheterComm });
+  return !!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9);
 }
 
 function boot() {
