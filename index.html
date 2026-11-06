@@ -66,7 +66,14 @@
     background: var(--store-tint); border-radius: 12px; padding: 14px; margin-bottom: 10px;
   }
   .store-head {
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin-bottom: 10px;
+    display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 10px;
+  }
+  .store-head .shop-person { width: 150px; flex: 0 1 150px; }
+  .store-head .shop-person .field { width: 100%; }
+  .store-head .shop-person label { font-size: 12px; }
+  .store-head [data-total] { margin-left: auto; }
+  @media (max-width: 560px) {
+    .store-head .shop-person { width: 128px; flex-basis: 128px; }
   }
   .store-name { font-size: 18px; font-weight: 700; color: var(--blue); letter-spacing: .03em; }
   .store-tip { font-size: 14px; font-weight: 600; color: var(--muted); }
@@ -845,7 +852,9 @@ function buildStores() {
     if (s.people) {
       const person = document.createElement("div"); person.className = "shop-person";
       const pe = fieldEl(s.people, "p_" + s.id, "number"); pe.dataset.peopleFor = s.id;
-      person.appendChild(pe); row.appendChild(person);
+      person.appendChild(pe);
+      const total = box.querySelector('[data-total="' + s.id + '"]');
+      box.querySelector('.store-head').insertBefore(person, total);
     }
     s.items.filter((it) => it.rate !== 0).forEach((it) => {
       const card = document.createElement("div"); card.className = "shop-item-card";
