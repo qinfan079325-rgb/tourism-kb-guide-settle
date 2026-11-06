@@ -83,11 +83,10 @@
   .field label .lab-rate { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
   .nw { white-space: nowrap; }
   @media (max-width: 560px) {
-    .shop-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #sumShopTable { font-size: 13px; }
     #sumShopTable th, #sumShopTable td { padding: 6px; }
   }
-  @media (max-width: 340px) { .shop-row { grid-template-columns: 1fr; } }
+  
   input, select, textarea, button { font: inherit; color: var(--text); }
   input[type="text"], input[type="number"], input[type="date"], select, textarea {
     border: 2px solid #64748b; border-radius: 8px; padding: 8px 10px;
@@ -282,12 +281,27 @@
   }
   #gsCaptureHost * { box-sizing: border-box; }
 
-  .refund-row {
-    margin-top: 8px; padding-top: 8px; border-top: 1px dashed #fdba74;
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+  .shop-row { grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 12px; align-items: stretch; }
+  .shop-person { background:#fff; border:2px solid #93c5fd; border-radius:10px; padding:10px; display:flex; align-items:flex-end; }
+  .shop-person .field { width:100% !important; }
+  .shop-item-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; min-width:0; }
+  .shop-item-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:3px 8px; margin-bottom:8px; }
+  .shop-item-name { font-size:16px; font-weight:750; color:var(--blue); }
+  .shop-item-rate { font-size:12px; font-weight:600; color:var(--muted); line-height:1.4; }
+  .shop-item-net { margin-left:auto; font-size:12px; font-weight:650; color:var(--green); }
+  .shop-item-net.has-refund { color:#c2410c; }
+  .shop-io { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .shop-io .field { width:100% !important; min-width:0; }
+  .shop-io .field label { font-size:12px; white-space:nowrap; }
+  .shop-io .refund-field { grid-column:1 / -1; }
+  .shop-io .refund-field input { border-color:#fb923c; background:#fffaf5; }
+  .shop-io .refund-field label { color:#9a3412; }
+  .shop-legacy-refund { margin-top:8px; font-size:13px; font-weight:600; color:#c2410c; }
+  @media (max-width:560px) {
+    .shop-row { grid-template-columns:1fr; }
+    .shop-item-net { margin-left:0; width:100%; }
+    .shop-io { grid-template-columns:1fr 1fr; }
   }
-  .refund-row .field label { color: #9a3412; font-size: 13px; }
-  .refund-row input { border-color: #fb923c; min-height: 36px; }
   .store-tip.refund-tip { color: #c2410c; }
   .rec-expand-col { width: 40px; text-align: center; vertical-align: middle; }
   .rec-expand {
@@ -822,62 +836,39 @@ function setVal(k, v) {
 }
 
 function buildStores() {
-  const host = document.getElementById("storesHost");
-  host.innerHTML = "";
+  document.getElementById("storesHost").innerHTML = "";
   STORES.forEach((s) => {
     const box = document.createElement("div");
-    box.className = "store";
-    box.dataset.store = s.id;
-    const head = document.createElement("div");
-    head.className = "store-head";
-    head.innerHTML = `<span class="store-name">${s.name}</span><span class="store-tip" data-tip="${s.id}"></span><span class="store-tip" data-total="${s.id}"></span>`;
-    const row = document.createElement("div");
-    row.className = "row shop-row";
+    box.className = "store"; box.dataset.store = s.id;
+    box.innerHTML = `<div class="store-head"><span class="store-name">${s.name}</span><span class="store-tip" data-tip="${s.id}"></span><span class="store-tip" data-total="${s.id}"></span></div><div class="shop-legacy-refund hidden" data-legacy-refund="${s.id}"></div>`;
+    const row = document.createElement("div"); row.className = "row shop-row";
     if (s.people) {
-      const pe = fieldEl(s.people, "p_" + s.id, "number");
-      pe.dataset.peopleFor = s.id;
-      row.appendChild(pe);
+      const person = document.createElement("div"); person.className = "shop-person";
+      const pe = fieldEl(s.people, "p_" + s.id, "number"); pe.dataset.peopleFor = s.id;
+      person.appendChild(pe); row.appendChild(person);
     }
     s.items.filter((it) => it.rate !== 0).forEach((it) => {
+      const card = document.createElement("div"); card.className = "shop-item-card";
       const sub = `返公司 ${typeof it.back === "number" ? it.back + "%" : "待确认"}${it.tier ? "" : ` ｜ 导游 ${it.rate ?? 0}%`}`;
-      row.appendChild(fieldEl(it.name, it.id, "number", sub));
+      const head = document.createElement("div"); head.className = "shop-item-head";
+      head.innerHTML = `<span class="shop-item-name">${it.name}</span><span class="shop-item-rate">${sub}</span><span class="shop-item-net hidden" data-item-net="${it.id}"></span>`;
+      const io = document.createElement("div"); io.className = "shop-io";
+      const ship = fieldEl("出货金额", it.id, "number");
+      const refund = fieldEl("退货金额", "rf_amt_" + it.id, "number"); refund.classList.add("refund-field");
+      const date = fieldEl("退货日期", "rf_date_" + it.id, "date"); date.classList.add("refund-field");
+      io.append(ship, refund, date); card.append(head, io); row.appendChild(card);
     });
-    const refundRow = document.createElement("div");
-    refundRow.className = "refund-row";
-    refundRow.appendChild(fieldEl("退货金额", "rf_amt_" + s.id, "number"));
-    refundRow.appendChild(fieldEl("退货日期", "rf_date_" + s.id, "date"));
-    box.appendChild(head);
-    box.appendChild(row);
-    box.appendChild(refundRow);
-    host.appendChild(box);
+    box.appendChild(row); document.getElementById("storesHost").appendChild(box);
   });
-
-  const extra = document.getElementById("extraHost");
-  extra.innerHTML = "";
-  [
-    ["景交人数×5", "jj"],
-    ["车销×5", "cx"],
-    ["日薪每天", "wd"],
-    ["日薪天数", "wn"],
-  ].forEach(([lab, k]) => extra.appendChild(fieldEl(lab, k, "number")));
-
-  const payHost = document.getElementById("payHost");
-  payHost.innerHTML = "";
+  const extra = document.getElementById("extraHost"); extra.innerHTML = "";
+  [["景交人数×5", "jj"], ["车销×5", "cx"], ["日薪每天", "wd"], ["日薪天数", "wn"]].forEach(([lab, k]) => extra.appendChild(fieldEl(lab, k, "number")));
+  const payHost = document.getElementById("payHost"); payHost.innerHTML = "";
   PAY.forEach((k) => {
-    const card = document.createElement("div");
-    card.className = "pay-card";
-    card.innerHTML = `<h3>${k}</h3>`;
-    const fields = document.createElement("div");
-    fields.className = "pay-fields";
-    const a = fieldEl("金额", "pay_" + k, "number");
-    a.style.width = "100%";
-    const note = fieldEl("备注", "payn_" + k, "text");
-    note.style.width = "100%";
-    note.querySelector("input").placeholder = "选填";
-    fields.appendChild(a);
-    fields.appendChild(note);
-    card.appendChild(fields);
-    payHost.appendChild(card);
+    const card = document.createElement("div"); card.className = "pay-card"; card.innerHTML = `<h3>${k}</h3>`;
+    const fields = document.createElement("div"); fields.className = "pay-fields";
+    const a = fieldEl("金额", "pay_" + k, "number"); a.style.width = "100%";
+    const note = fieldEl("备注", "payn_" + k, "text"); note.style.width = "100%"; note.querySelector("input").placeholder = "选填";
+    fields.append(a, note); card.appendChild(fields); payHost.appendChild(card);
   });
 }
 
@@ -905,84 +896,68 @@ function fieldEl(lab, key, type, sub) {
   return wrap;
 }
 
+// 新单按项目退货；旧单仅有店级字段时保持原来的店级分摊逻辑。
+function itemShip(s, it, v) { return r(Math.max(0, n(v[it.id]))); }
+function itemRefund(s, it, v, ship) {
+  const key = "rf_amt_" + it.id;
+  if (Object.prototype.hasOwnProperty.call(v, key) && String(v[key] ?? "").trim() !== "") return r(Math.min(ship, Math.max(0, n(v[key]))));
+  const ss = Array.isArray(v.storeSummary) ? v.storeSummary.find((x) => x.id === s.id) : null;
+  const saved = ss && Array.isArray(ss.items) ? ss.items.find((x) => x.itemId === it.id) : null;
+  if (saved && Number(saved.refund) > 0) return r(Math.min(ship, Math.max(0, n(saved.refund))));
+  return 0;
+}
+function itemRefundDate(s, it, v) {
+  if (v["rf_date_" + it.id]) return String(v["rf_date_" + it.id]).trim();
+  const ss = Array.isArray(v.storeSummary) ? v.storeSummary.find((x) => x.id === s.id) : null;
+  const saved = ss && Array.isArray(ss.items) ? ss.items.find((x) => x.itemId === it.id) : null;
+  return String(saved && saved.refundDate || "").trim();
+}
+function legacyStoreRefund(s, v, ship) { return r(Math.min(ship, Math.max(0, n(v["rf_amt_" + s.id])))); }
 function buildStoreSummaryFromValues(v) {
   const out = [];
   STORES.forEach((s) => {
-    const ship = r(s.items.reduce((a, it) => a + n(v[it.id]), 0));
-    if (!(ship > 0)) return;
-    const refund = Math.max(0, r(n(v["rf_amt_" + s.id])));
-    const refundDate = String(v["rf_date_" + s.id] || "").trim();
-    const net = Math.max(0, r(ship - refund));
-    out.push({ id: s.id, short: s.short, name: s.name, ship, refund, refundDate, net });
+    const summary = { id: s.id, short: s.short, name: s.name, ship: 0, refund: 0, refundDate: String(v["rf_date_" + s.id] || "").trim(), net: 0, legacyRefund: 0, items: [] };
+    out.push(summary);
+    const ship = r(s.items.reduce((a, it) => a + itemShip(s, it, v), 0));
+    const legacy = legacyStoreRefund(s, v, ship);
+    const items = s.items.map((it) => {
+      const iship = itemShip(s, it, v); const refund = itemRefund(s, it, v, iship);
+      const allocated = legacy && ship ? r(refund + legacy * iship / ship) : refund;
+      return { storeId: s.id, store: s.short, item: it.name, itemId: it.id, ship: iship,
+        refund: r(Math.min(iship, allocated)), refundDate: itemRefundDate(s, it, v) || (legacy ? String(v["rf_date_" + s.id] || "").trim() : ""), net: r(Math.max(0, iship - allocated)) };
+    });
+    const refund = r(items.reduce((a, x) => a + x.refund, 0)); const net = r(items.reduce((a, x) => a + x.net, 0));
+    Object.assign(summary, { ship, refund, net, legacyRefund: legacy, items });
   });
   return out;
 }
-
 function calcAll() {
-  const v = state.values;
-  const guide = v.guide ?? "";
-  const jadePol = jadePolicyOf(guide);
-  const storeTotals = {};
-  const refundTotals = {};
-  const netStoreTotals = {};
-  const storeScale = {};
-  STORES.forEach((s) => {
-    const ship = s.items.reduce((a, it) => a + n(v[it.id]), 0);
-    const refund = Math.max(0, n(v["rf_amt_" + s.id]));
-    const net = Math.max(0, ship - refund);
-    storeTotals[s.id] = ship;
-    refundTotals[s.id] = refund;
-    netStoreTotals[s.id] = net;
-    storeScale[s.id] = ship > 0 ? (net / ship) : 0;
-  });
-  const pcOf = (sid) => { const p = n(v["p_" + sid]); return p > 0 ? netStoreTotals[sid] / p : 0; };
-  const tierRate = {
-    gb: jadeRateForGuide(guide, pcOf("gb")),
-    yl: jadeRateForGuide(guide, pcOf("yl")),
-    yd: ydRate(pcOf("yd")),
-  };
-  const rows = [];
-  STORES.forEach((s) => s.items.forEach((it) => {
-    const shipAmt = n(v[it.id]); if (!shipAmt) return;
-    const scale = storeScale[s.id];
-    const amt = r(shipAmt * scale);
-    if (!amt) return;
-    let rate = it.rate ?? 0;
-    if (it.tier === "jade") rate = s.id === "yl" ? tierRate.yl : tierRate.gb;
-    if (it.tier === "yd") rate = tierRate.yd;
-    rows.push({
-      storeId: s.id, store: s.short, item: it.name,
-      amt, shipAmt: r(shipAmt), back: it.back, rate,
-      comm: r(amt * rate / 100), ret: r(amt * it.back / 100),
-      people: n(v["p_" + s.id]),
-    });
-  }));
-  const shipTotal = r(STORES.reduce((a, s) => a + storeTotals[s.id], 0));
-  const refundTotal = r(STORES.reduce((a, s) => a + (storeTotals[s.id] > 0 ? refundTotals[s.id] : 0), 0));
-  const shopTotal = rows.reduce((a, x) => a + x.amt, 0); // net shopping total for display/calc
-  const netShopTotal = r(shopTotal);
-  const commTotal = rows.reduce((a, x) => a + x.comm, 0);
-  const retTotal = rows.reduce((a, x) => a + x.ret, 0); // 返公司 rebate on net amts
-  const bigStores = STORES.filter((s) => netStoreTotals[s.id] > 100000).length;
-  const single = bigStores * 1000;
-  const combo = netStoreTotals.gb + netStoreTotals.yl + netStoreTotals.yd > 200000 ? 2000 : 0;
-  const bonus = Math.min(2000, Math.max(single, combo));
-  const jj = r(n(v.jj) * 5);
-  const cx = r(n(v.cx) * 5);
-  const wage = r(n(v.wd) * n(v.wn));
-  const income = commTotal + bonus + jj + cx + wage;
-  // 导管提成：购物净额×2%，固定；不计入工资提成/应付导游
-  const catheterComm = r(netShopTotal * 0.02);
-  const pay = PAY.map((k) => ({ k, a: r(n(v["pay_" + k])), note: (v["payn_" + k] ?? "").trim() }));
-  const payTotal = pay.reduce((a, x) => a + x.a, 0);
+  const v = state.values; const guide = v.guide ?? ""; const jadePol = jadePolicyOf(guide);
   const storeSummary = buildStoreSummaryFromValues(v);
-  return {
-    storeTotals, refundTotals, netStoreTotals, storeScale, storeSummary,
-    pcOf, tierRate, jadePol, rows,
-    shopTotal: netShopTotal, shipTotal, refundTotal, netShopTotal,
-    commTotal, retTotal, bonus, jj, cx, wage, income, catheterComm, pay, payTotal,
-    company: retTotal - commTotal, payable: income + payTotal,
-  };
+  const storeTotals = {}, refundTotals = {}, netStoreTotals = {}, storeScale = {};
+  storeSummary.forEach((s) => { storeTotals[s.id] = s.ship; refundTotals[s.id] = s.refund; netStoreTotals[s.id] = s.net; storeScale[s.id] = s.ship > 0 ? s.net / s.ship : 0; });
+  const pcOf = (sid) => { const p = n(v["p_" + sid]); return p > 0 ? (netStoreTotals[sid] || 0) / p : 0; };
+  const tierRate = { gb: jadeRateForGuide(guide, pcOf("gb")), yl: jadeRateForGuide(guide, pcOf("yl")), yd: ydRate(pcOf("yd")) };
+  const refundSummary = [], rows = [];
+  STORES.forEach((s) => {
+    const summary = storeSummary.find((x) => x.id === s.id);
+    s.items.forEach((it) => {
+      const detail = summary.items.find((x) => x.itemId === it.id); refundSummary.push(detail);
+      if (!detail.ship && !detail.refund) return;
+      let rate = it.rate ?? 0;
+      if (it.tier === "jade") rate = s.id === "yl" ? tierRate.yl : tierRate.gb;
+      if (it.tier === "yd") rate = tierRate.yd;
+      rows.push({ storeId: s.id, store: s.short, item: it.name, itemId: it.id, amt: detail.net, shipAmt: detail.ship, refund: detail.refund, refundDate: detail.refundDate, net: detail.net, back: it.back, rate, comm: r(detail.net * rate / 100), ret: r(detail.net * it.back / 100), people: n(v["p_" + s.id]) });
+    });
+  });
+  const shipTotal = r(storeSummary.reduce((a, x) => a + x.ship, 0)); const refundTotal = r(storeSummary.reduce((a, x) => a + x.refund, 0)); const netShopTotal = r(storeSummary.reduce((a, x) => a + x.net, 0));
+  const commTotal = rows.reduce((a, x) => a + x.comm, 0); const retTotal = rows.reduce((a, x) => a + x.ret, 0);
+  const bigStores = STORES.filter((s) => netStoreTotals[s.id] > 100000).length;
+  const bonus = Math.min(2000, Math.max(bigStores * 1000, (netStoreTotals.gb || 0) + (netStoreTotals.yl || 0) + (netStoreTotals.yd || 0) > 200000 ? 2000 : 0));
+  const jj = r(n(v.jj) * 5), cx = r(n(v.cx) * 5), wage = r(n(v.wd) * n(v.wn)); const income = commTotal + bonus + jj + cx + wage;
+  const catheterComm = r(netShopTotal * 0.02);
+  const pay = PAY.map((k) => ({ k, a: r(n(v["pay_" + k])), note: (v["payn_" + k] ?? "").trim() })); const payTotal = pay.reduce((a, x) => a + x.a, 0);
+  return { storeTotals, refundTotals, netStoreTotals, storeScale, storeSummary, refundSummary, pcOf, tierRate, jadePol, rows, shopTotal: netShopTotal, shipTotal, refundTotal, netShopTotal, commTotal, retTotal, bonus, jj, cx, wage, income, catheterComm, pay, payTotal, company: retTotal - commTotal, payable: income + payTotal };
 }
 
 function summaryText(c) {
@@ -1025,6 +1000,17 @@ function recalc() {
     const sid = el.getAttribute("data-people-for");
     const hide = c.jadePol === "flat20" && (sid === "gb" || sid === "yl");
     el.style.display = hide ? "none" : "";
+  });
+  document.querySelectorAll("[data-item-net]").forEach((el) => {
+    const d = c.refundSummary.find((x) => x.itemId === el.dataset.itemNet);
+    el.classList.toggle("hidden", !d || !d.ship);
+    el.classList.toggle("has-refund", !!d && d.refund > 0);
+    el.textContent = d && d.ship ? `净 ${m(d.net)}${d.refund > 0 ? `（退 ${m(d.refund)}）` : ""}` : "";
+  });
+  document.querySelectorAll("[data-legacy-refund]").forEach((el) => {
+    const x = c.storeSummary.find((s) => s.id === el.dataset.legacyRefund);
+    el.classList.toggle("hidden", !x || !(x.legacyRefund > 0));
+    el.textContent = x && x.legacyRefund > 0 ? `旧单店级退货 ${m(x.legacyRefund)} · 日期 ${x.refundDate || "未填"}（保留原分摊）` : "";
   });
   document.querySelectorAll("[data-total]").forEach((el) => {
     const sid = el.getAttribute("data-total");
@@ -1246,6 +1232,7 @@ async function saveRecord(status) {
       catheterComm: c.catheterComm,
     },
     storeSummary: c.storeSummary,
+    refundSummary: c.refundSummary,
     rows: c.rows,
     pay: c.pay,
     summary: summaryText(c),
@@ -1368,37 +1355,40 @@ function setExpandAffordance(expand, open) {
   expand.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
-function renderStoreDetailRows(stores) {
-  if (!stores.length) {
-    return `<tr><td colspan="5" class="hint">暂无出货购物店</td></tr>`;
-  }
-  return stores.map((s) =>
-    `<tr><td>${s.short || s.name || s.id}</td><td>${m(s.ship)}</td><td>${Number(s.refund) > 0 ? m(s.refund) : "—"}</td><td>${s.refundDate || "—"}</td><td>${m(s.net != null ? s.net : Math.max(0, Number(s.ship) - Number(s.refund || 0)))}</td></tr>`
-  ).join("");
+function expandStoreItems(stores, inputs) {
+  const rows = [];
+  stores.forEach((s) => {
+    if (Array.isArray(s.items) && s.items.length) {
+      s.items.forEach((it) => {
+        if (Number(it.ship) > 0 || Number(it.refund) > 0) rows.push({ store: s.short || s.name || s.id, item: it.item || it.itemId, ship: Number(it.ship) || 0, refund: Number(it.refund) || 0, refundDate: it.refundDate || "", net: Number(it.net) || 0 });
+      });
+      return;
+    }
+    if (Number(s.ship) <= 0 && Number(s.refund) <= 0) return;
+    const store = STORES.find((x) => x.id === s.id);
+    if (store && store.items.length === 1) {
+      const it = store.items[0];
+      const refund = Number(inputs && inputs["rf_amt_" + it.id]) || 0;
+      rows.push({ store: s.short || s.name || s.id, item: it.name, ship: Number(s.ship) || 0, refund, refundDate: inputs && inputs["rf_date_" + it.id] || s.refundDate || "", net: Math.max(0, Number(s.ship) - refund) });
+    } else rows.push({ store: s.short || s.name || s.id, item: "整店合计（旧单）", ship: s.ship, refund: s.refund, refundDate: s.refundDate, net: s.net != null ? s.net : Number(s.ship) - Number(s.refund || 0) });
+  });
+  return rows;
 }
-
-function ensureRecordDetailRow(tb, id, stores, { needsLoad } = {}) {
+function renderStoreDetailRows(stores, inputs) {
+  const rows = expandStoreItems(stores, inputs);
+  if (!rows.length) return `<tr><td colspan="6" class="hint">暂无出货购物项目</td></tr>`;
+  return rows.map((x) => `<tr><td>${x.store}</td><td>${x.item}</td><td>${m(x.ship)}</td><td>${Number(x.refund) > 0 ? m(x.refund) : "—"}</td><td>${x.refundDate || "—"}</td><td>${m(x.net)}</td></tr>`).join("");
+}
+const RECORD_DETAIL_HEAD = "<thead><tr><th>购物店</th><th>项目</th><th>出货</th><th>退货</th><th>退货日期</th><th>净额</th></tr></thead>";
+function ensureRecordDetailRow(tb, id, stores, { needsLoad, inputs } = {}) {
   let detail = tb.querySelector('tr.rec-detail[data-for="' + id + '"]');
-  const body = `
-      <td colspan="13">
-        <table class="rec-detail-table">
-          <thead><tr><th>购物店</th><th>出货</th><th>退货</th><th>退货日期</th><th>净额</th></tr></thead>
-          <tbody>${renderStoreDetailRows(stores)}</tbody>
-        </table>
-      </td>`;
+  const body = `<td colspan="13"><table class="rec-detail-table">${RECORD_DETAIL_HEAD}<tbody>${renderStoreDetailRows(stores, inputs)}</tbody></table></td>`;
   if (!detail) {
-    const tr = tb.querySelector('tr.rec-row[data-id="' + id + '"]');
-    if (!tr) return null;
-    detail = document.createElement("tr");
-    detail.className = "rec-detail hidden";
-    detail.dataset.for = id;
-    detail.innerHTML = body;
-    tr.insertAdjacentElement("afterend", detail);
-  } else {
-    detail.innerHTML = body;
-  }
-  if (needsLoad) detail.dataset.needsLoad = "1";
-  else delete detail.dataset.needsLoad;
+    const tr = tb.querySelector('tr.rec-row[data-id="' + id + '"]'); if (!tr) return null;
+    detail = document.createElement("tr"); detail.className = "rec-detail hidden"; detail.dataset.for = id;
+    detail.innerHTML = body; tr.insertAdjacentElement("afterend", detail);
+  } else detail.innerHTML = body;
+  if (needsLoad) detail.dataset.needsLoad = "1"; else delete detail.dataset.needsLoad;
   return detail;
 }
 
@@ -1414,7 +1404,7 @@ async function toggleRecordExpand(tr, tb, expand) {
       let ss = Array.isArray(rec.storeSummary) ? rec.storeSummary : [];
       if (!ss.length) ss = buildStoreSummaryFromValues(rec.inputs || {});
       const stores = ss.filter((s) => Number(s.ship) > 0);
-      detail = ensureRecordDetailRow(tb, id, stores, { needsLoad: false });
+      detail = ensureRecordDetailRow(tb, id, stores, { needsLoad: false, inputs: rec.inputs || {} });
       // cache onto row dataset for subsequent toggles without refetch
       tr.dataset.storeSummaryReady = "1";
     } finally {
@@ -1511,7 +1501,7 @@ async function loadList() {
   tb.innerHTML = (data.records || []).map((x) => {
     const confirmed = x.status === "已确认";
     const hasSummary = Array.isArray(x.storeSummary);
-    const stores = hasSummary ? x.storeSummary.filter((s) => Number(s.ship) > 0) : [];
+    const stores = hasSummary ? x.storeSummary.filter((s) => Number(s.ship) > 0 || Number(s.refund) > 0 || (Array.isArray(s.items) && s.items.some((it) => Number(it.ship) > 0 || Number(it.refund) > 0))) : [];
     const needsLoad = !hasSummary;
     const hasRefund = recordHasRefund(x);
     const yituBtn = confirmed
@@ -1526,13 +1516,13 @@ async function loadList() {
     const yituRefundBadge = (confirmed && hasRefund)
       ? `<span class="status-tag ${yituRefundClass(x.yituRefundStatus)}">${yituRefundLabel(x.yituRefundStatus)}</span>`
       : "";
-    const expandCell = `<span class="rec-expand${hasSummary && !stores.length ? " empty" : ""}" role="button" tabindex="0" aria-expanded="false" title="展开各店出货/退货"><span class="rec-expand-arrow">▶</span><span class="rec-expand-label">店</span></span>`;
+    const expandCell = `<span class="rec-expand${hasSummary && !stores.length ? " empty" : ""}" role="button" tabindex="0" aria-expanded="false" title="展开各项目出货/退货"><span class="rec-expand-arrow">▶</span><span class="rec-expand-label">明细</span></span>`;
     const detail = `
     <tr class="rec-detail hidden" data-for="${x.id}"${needsLoad ? ' data-needs-load="1"' : ""}>
       <td colspan="13">
         <table class="rec-detail-table">
-          <thead><tr><th>购物店</th><th>出货</th><th>退货</th><th>退货日期</th><th>净额</th></tr></thead>
-          <tbody>${renderStoreDetailRows(stores)}</tbody>
+${RECORD_DETAIL_HEAD}
+          <tbody>${renderStoreDetailRows(stores, x.inputs)}</tbody>
         </table>
       </td>
     </tr>`;
@@ -1868,9 +1858,12 @@ function selfTest() {
   const incomeBeforeCatheter = c.income;
   const ok8 = c.catheterComm === 1003.28 && c.shopTotal === 50164 && !s.includes("导管") && c.payable === c.income + c.payTotal;
   const ok9 = c5.catheterComm === 362.95 && c5.income === scRow.comm && c5.payable === c5.income;
+  state.values = { gt1: "10000", gt2: "2000", rf_amt_gt1: "1000", rf_date_gt1: "2026-11-05", rf_amt_gt2: "500", rf_date_gt2: "2026-11-06", date: chinaToday() };
+  const c6 = calcAll(); const gt1 = c6.rows.find((x) => x.itemId === "gt1"), gt2 = c6.rows.find((x) => x.itemId === "gt2");
+  const ok10 = c6.shipTotal === 12000 && c6.refundTotal === 1500 && c6.shopTotal === 10500 && gt1.amt === 9000 && gt1.comm === 1350 && gt2.amt === 1500 && gt2.comm === 150 && gt1.refundDate === "2026-11-05" && gt2.refundDate === "2026-11-06";
   state.values = bak;
-  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, ok4, ok5, ok6, ok7: !!ok7, ok8, ok9, summary: s, rows: c.rows, refundRow: scRow, catheterComm: c.catheterComm });
-  return !!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9);
+  console.log("selfTest", { ok1: !!ok1, ok2: !!ok2, ok3, ok4, ok5, ok6, ok7: !!ok7, ok8, ok9, ok10, itemRows: [gt1, gt2], summary: s, rows: c.rows, refundRow: scRow, catheterComm: c.catheterComm });
+  return !!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9 && ok10);
 }
 
 function boot() {
